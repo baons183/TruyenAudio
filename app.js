@@ -345,9 +345,11 @@
         lastTouchLink = href;
         lastTouchLinkAt = Date.now();
       }
+      const target = new URL(href, contentDocument.baseURI);
+      const targetHref = `${target.pathname.replace(/^\/+/, "")}${target.search}${target.hash}`;
       stopSpeech();
       showReaderChrome();
-      rendition.display(href).catch((error) => {
+      rendition.display(targetHref).catch((error) => {
         console.error("Không thể mở liên kết trong sách:", error);
         setError("Không thể mở chương được chọn trong sách này.");
       });
