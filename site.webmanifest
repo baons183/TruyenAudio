@@ -1,0 +1,20 @@
+{
+  "id": "./",
+  "name": "Trang Đọc — Không gian đọc của bạn",
+  "short_name": "Trang Đọc",
+  "description": "Đọc và nghe sách EPUB trên thiết bị của bạn.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "display_override": ["fullscreen", "standalone"],
+  "background_color": "#f6f4ee",
+  "theme_color": "#f6f4ee",
+  "icons": [
+    {
+      "src": "book.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
