@@ -10,10 +10,16 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:wght@500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=20261021-14">
+    <link rel="stylesheet" href="styles.css?v=20261021-15">
   </head>
   <body>
     <header class="topbar">
+      <a class="brand" href="./" aria-label="Trang Đọc - Thư viện sách">
+        <span class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 24 24"><path d="M4 5.8c2.8-.8 5.5-.2 8 1.6v12c-2.5-1.8-5.2-2.4-8-1.6z"/><path d="M20 5.8c-2.8-.8-5.5-.2-8 1.6v12c2.5-1.8 5.2-2.4 8-1.6z"/><path d="M12 7.4v12"/></svg>
+        </span>
+        <span>Trang Đọc<span class="brand-period">.</span><small>KHÔNG GIAN CỦA NHỮNG CÂU CHUYỆN</small></span>
+      </a>
       <button class="home-button" id="home-button" type="button" aria-label="Về thư viện sách" hidden>
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1h-6v-7h-4v7H4a1 1 0 0 1-1-1z"/></svg>
         <span>Thư viện</span>
@@ -25,16 +31,32 @@
     </header>
 
     <main class="home-screen" id="home-screen">
+      <section class="library-hero">
+        <div class="library-hero-copy">
+          <p class="eyebrow">GÓC NHỎ CỦA BẠN</p>
+          <h1>Mỗi cuốn sách,<br>một <em>thế giới mới.</em></h1>
+          <p class="library-description">Dành một chút yên tĩnh cho những câu chuyện bạn yêu.</p>
+          <button class="button button-primary library-open-button" id="open-book" type="button">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14m-7-7h14"/></svg>
+            Thêm sách vào thư viện
+          </button>
+        </div>
+        <div class="library-hero-art" aria-hidden="true">
+          <span class="hero-sun"></span>
+          <span class="hero-spark hero-spark-one">✳</span>
+          <span class="hero-spark hero-spark-two">✦</span>
+          <span class="hero-book hero-book-back"></span>
+          <span class="hero-book hero-book-front"><i></i><i></i><i></i></span>
+          <span class="hero-leaf hero-leaf-one"></span>
+          <span class="hero-leaf hero-leaf-two"></span>
+        </div>
+      </section>
       <section class="library-header">
         <div>
-          <p class="eyebrow">THƯ VIỆN CỦA BẠN</p>
-          <h1>Sách đã tải</h1>
-          <p class="library-description">Sách được lưu trên thiết bị này và chỉ bạn mới truy cập được.</p>
+          <p class="eyebrow">NHỮNG CÂU CHUYỆN CỦA BẠN</p>
+          <h2>Kệ sách</h2>
         </div>
-        <button class="button button-primary" id="open-book" type="button">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14m-7-7h14"/></svg>
-          Mở sách
-        </button>
+        <span class="library-private-note"><span class="privacy-dot"></span> Riêng tư trên thiết bị này</span>
       </section>
       <p class="library-status" id="library-status" role="status" hidden></p>
       <section class="library-books" id="library-books" aria-label="Sách đã tải"></section>
@@ -257,6 +279,6 @@
 
     <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/epubjs@0.3.93/dist/epub.min.js"></script>
-    <script src="app.js?v=20261021-13"></script>
+    <script src="app.js?v=20261021-14"></script>
   </body>
 </html>

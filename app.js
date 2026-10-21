@@ -181,9 +181,9 @@
     }
   }
 
-  async function saveCurrentPosition(cfi) {
-    if (!currentBookId || !cfi) return;
-    const record = await getStoredBook(currentBookId);
+  async function saveCurrentPosition(cfi, bookId = currentBookId) {
+    if (!bookId || !cfi) return;
+    const record = await getStoredBook(bookId);
     if (!record) return;
     record.cfi = cfi;
     record.updatedAt = Date.now();
@@ -209,9 +209,21 @@
     const bookList = $("#library-books");
     bookList.replaceChildren();
     $("#library-empty").hidden = books.length > 0;
-    for (const record of books) {
+    books.forEach((record, index) => {
       const card = document.createElement("article");
       card.className = "library-book";
+      const cover = document.createElement("div");
+      cover.className = `library-book-cover palette-${index % 4}`;
+      cover.setAttribute("aria-hidden", "true");
+      const ornament = document.createElement("span");
+      ornament.className = "library-cover-ornament";
+      const coverTitle = document.createElement("span");
+      coverTitle.className = "library-cover-title";
+      coverTitle.textContent = record.title || record.name.replace(/\.epub$/i, "");
+      const coverAuthor = document.createElement("span");
+      coverAuthor.className = "library-cover-author";
+      coverAuthor.textContent = record.author || "MỘT CUỐN SÁCH";
+      cover.append(ornament, coverTitle, coverAuthor);
       const title = document.createElement("h2");
       title.textContent = record.title || record.name.replace(/\.epub$/i, "");
       const details = document.createElement("p");
@@ -219,15 +231,29 @@
       const button = document.createElement("button");
       button.className = "button button-primary";
       button.type = "button";
-      button.textContent = "Đọc tiếp";
+      button.append(document.createTextNode("Đọc tiếp "));
+      const arrow = document.createElement("span");
+      arrow.setAttribute("aria-hidden", "true");
+      arrow.textContent = "→";
+      button.append(arrow);
       button.addEventListener("click", () => openBook(null, record));
-      card.append(title, details, button);
+      const copy = document.createElement("div");
+      copy.className = "library-book-copy";
+      const action = document.createElement("div");
+      action.className = "library-book-action";
+      const saved = document.createElement("span");
+      saved.className = "library-book-saved";
+      saved.textContent = record.cfi ? "Đã lưu vị trí đọc" : "Sẵn sàng để đọc";
+      copy.append(title, details);
+      action.append(saved, button);
+      card.append(cover, copy, action);
       bookList.append(card);
-    }
+    });
     setLibraryStatus("");
   }
 
   function showReaderView() {
+    document.body.classList.add("is-reading");
     $("#home-screen").hidden = true;
     $("#app-shell").hidden = false;
     $("#home-button").hidden = false;
@@ -237,6 +263,7 @@
     stopSpeech();
     if (currentBookId && rendition) {
       try {
+        window.clearTimeout(savePositionTimer);
         const cfi = rendition.currentLocation()?.start?.cfi;
         if (cfi) await saveCurrentPosition(cfi);
       } catch (error) {
@@ -244,6 +271,7 @@
         setSaveStatus("Không lưu được vị trí đọc trên thiết bị", true);
       }
     }
+    document.body.classList.remove("is-reading");
     $("#app-shell").hidden = true;
     $("#home-screen").hidden = false;
     $("#home-button").hidden = true;
@@ -568,8 +596,9 @@
     }
     if (location.start.cfi && currentBookId) {
       window.clearTimeout(savePositionTimer);
+      const bookId = currentBookId;
       savePositionTimer = window.setTimeout(() => {
-        saveCurrentPosition(location.start.cfi).then(
+        saveCurrentPosition(location.start.cfi, bookId).then(
           () => setSaveStatus("Đã lưu sách và vị trí đọc trên thiết bị"),
           (error) => {
             console.error("Không thể lưu vị trí đọc:", error);
@@ -613,6 +642,15 @@
     }
 
     stopSpeech();
+    window.clearTimeout(savePositionTimer);
+    if (currentBookId && rendition) {
+      try {
+        const currentCfi = rendition.currentLocation()?.start?.cfi;
+        if (currentCfi) await saveCurrentPosition(currentCfi, currentBookId);
+      } catch (error) {
+        console.error("Không thể lưu vị trí trước khi mở sách khác:", error);
+      }
+    }
     if (rendition) rendition.destroy();
     if (book) book.destroy();
     book = null;
@@ -629,6 +667,7 @@
     tocList.replaceChildren();
     $("#chapter-count").textContent = "";
     enableReading(false);
+    showReaderView();
 
     let loadingStep = "đọc tệp sách";
     try {
@@ -642,6 +681,10 @@
       book = window.ePub(bookData);
       await book.ready;
       loadingStep = "hiển thị nội dung sách";
+      const readerSize = viewer.getBoundingClientRect();
+      if (!readerSize.width || !readerSize.height) {
+        throw new Error("Không xác định được kích thước vùng đọc.");
+      }
       rendition = book.renderTo(viewer, {
         width: "100%",
         height: "100%",
@@ -712,7 +755,6 @@
           setSaveStatus("Sách đã mở nhưng không thể lưu thông tin cập nhật", true);
         }
       }
-      showReaderView();
       try {
         await renderLibrary();
       } catch (error) {
