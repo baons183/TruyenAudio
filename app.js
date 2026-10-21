@@ -406,14 +406,14 @@
   async function enterReadingFullscreen() {
     if (window.innerWidth > 650 || document.fullscreenElement || window.matchMedia("(display-mode: standalone)").matches || navigator.standalone) return;
     if (!document.documentElement.requestFullscreen) {
-      setFullscreenHint("Để ẩn thanh địa chỉ, hãy thêm Trang Đọc vào Màn hình chính rồi mở bằng biểu tượng ứng dụng.");
+      setFullscreenHint("Để ẩn thanh địa chỉ, hãy thêm Sách của bạn vào Màn hình chính rồi mở bằng biểu tượng ứng dụng.");
       return;
     }
     try {
       await document.documentElement.requestFullscreen();
     } catch (error) {
       console.warn("Trình duyệt không cho phép bật toàn màn hình:", error);
-      setFullscreenHint("Trình duyệt chưa cho phép ẩn thanh địa chỉ. Hãy thêm Trang Đọc vào Màn hình chính để mở như ứng dụng.");
+      setFullscreenHint("Trình duyệt chưa cho phép ẩn thanh địa chỉ. Hãy thêm Sách của bạn vào Màn hình chính để mở như ứng dụng.");
     }
   }
 
@@ -724,7 +724,7 @@
     $("#book-author").textContent = author;
     $("#cover-title").textContent = title.length > 36 ? `${title.slice(0, 33)}…` : title;
     $("#cover-author").textContent = author.toLocaleUpperCase("vi").slice(0, 36);
-    document.title = `${title} — Trang Đọc`;
+    document.title = `${title} — Sách của bạn`;
   }
 
   function readFileAsArrayBuffer(file) {

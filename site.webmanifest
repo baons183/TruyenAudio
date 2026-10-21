@@ -1,7 +1,7 @@
 {
   "id": "./",
-  "name": "Trang Đọc — Không gian đọc của bạn",
-  "short_name": "Trang Đọc",
+  "name": "Sách của bạn - nghe và đọc",
+  "short_name": "Sách của bạn",
   "description": "Đọc và nghe sách EPUB trên thiết bị của bạn.",
   "start_url": "./",
   "scope": "./",
