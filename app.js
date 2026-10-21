@@ -15,6 +15,7 @@
   const audioIllustration = $("#audio-illustration");
   const synth = window.speechSynthesis;
   const audioPlayer = new Audio();
+  audioPlayer.referrerPolicy = "no-referrer";
 
   let book = null;
   let rendition = null;
@@ -268,8 +269,13 @@
         speakNextChunk();
       };
       audioPlayer.onerror = () => {
+        const mediaErrorCode = audioPlayer.error?.code;
         stopSpeech();
-        setSpeechStatus("Không phát được giọng trực tuyến. Hãy kiểm tra kết nối mạng.");
+        if (mediaErrorCode === MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED) {
+          setSpeechStatus("Dịch vụ giọng tiếng Việt không trả về âm thanh. Hãy thử lại hoặc chọn giọng có sẵn.");
+        } else {
+          setSpeechStatus("Không phát được giọng trực tuyến. Hãy kiểm tra kết nối mạng rồi thử lại.");
+        }
       };
       audioPlayer.play().catch((error) => {
         stopSpeech();
