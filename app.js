@@ -15,7 +15,6 @@
   const audioIllustration = $("#audio-illustration");
   const synth = window.speechSynthesis;
   const audioPlayer = new Audio();
-  audioPlayer.referrerPolicy = "no-referrer";
 
   let book = null;
   let rendition = null;
