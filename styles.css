@@ -143,6 +143,7 @@ button { color: inherit; }
 .audio-panel { min-height: calc(100vh - 76px); display: flex; flex-direction: column; padding: 34px 23px 22px; background: #fffefa; border-left: 1px solid var(--line); }
 .app-shell.audio-panel-hidden { grid-template-columns: 258px minmax(400px, 1fr); }
 .app-shell.audio-panel-hidden .audio-panel { display: none; }
+.app-shell.audio-panel-hidden .viewer { max-height: none; }
 .audio-panel-heading { display: flex; align-items: center; gap: 11px; }
 .audio-panel-heading > div:nth-child(2) { min-width: 0; flex: 1; }
 .hide-audio-panel { flex: 0 0 auto; }
@@ -238,6 +239,7 @@ body.theme-dark .welcome-card h2 em { color: #aebc9e; }
   .sidebar-toggle, .show-sidebar { display: inline-grid; }
   .reader-column { height: calc(100vh - 64px - 184px); min-height: 520px; flex: 0 0 auto; padding: 0 17px 13px; }
   .app-shell.audio-panel-hidden .reader-column { height: calc(100vh - 64px); }
+  .app-shell.audio-panel-hidden .viewer { max-height: none; }
   .reader-toolbar { min-height: 52px; }
   .reader-stage { min-height: 390px; }
   .viewer { min-height: 390px; max-height: calc(100vh - 330px); }

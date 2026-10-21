@@ -207,6 +207,16 @@
     $("#reader-column")?.classList.toggle("is-scrolling", isScrolling);
   }
 
+  function resizeRenditionToViewer() {
+    if (!rendition) return;
+    window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(() => {
+        const { width, height } = viewer.getBoundingClientRect();
+        if (width > 0 && height > 0) rendition.resize(width, height);
+      });
+    });
+  }
+
   function setError(message) {
     readerError.textContent = message;
     readerError.hidden = false;
@@ -721,11 +731,13 @@
     $("#hide-audio-panel").setAttribute("aria-expanded", "false");
     $("#show-audio-panel").hidden = false;
     $("#show-audio-panel").setAttribute("aria-expanded", "false");
+    resizeRenditionToViewer();
   });
   $("#show-audio-panel").addEventListener("click", () => {
     $("#app-shell").classList.remove("audio-panel-hidden");
     $("#hide-audio-panel").setAttribute("aria-expanded", "true");
     $("#show-audio-panel").hidden = true;
+    resizeRenditionToViewer();
   });
   $("#reading-mode-toggle").addEventListener("click", () => {
     if (!rendition) return;
