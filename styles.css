@@ -71,7 +71,7 @@ button { color: inherit; }
 .sidebar-footer p { margin: 0; color: #939389; font-family: var(--serif); font-size: 11px; line-height: 1.6; }
 .sidebar-footer strong { color: #5d6255; font-weight: 600; }
 
-.reader-column { min-width: 0; min-height: calc(100vh - 76px); display: flex; flex-direction: column; padding: 0 34px 20px; }
+.reader-column { min-width: 0; height: calc(100vh - 76px); min-height: 620px; display: flex; flex-direction: column; padding: 0 34px 20px; }
 .reader-toolbar { min-height: 64px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #e9e7df; }
 .reading-location { min-width: 0; display: flex; align-items: center; gap: 9px; color: #77796e; font-size: 10px; }
 .reading-location span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -122,7 +122,7 @@ button { color: inherit; }
 .format-note { display: block; margin-top: 11px; color: #aaa99e; font-size: 9px; }
 .viewer { display: none; width: 100%; height: 100%; min-height: 470px; max-height: calc(100vh - 225px); }
 .viewer.is-visible { display: block; }
-.viewer iframe { display: block; max-width: 100% !important; background: transparent !important; }
+.viewer iframe { display: block; background: transparent !important; }
 .loading-state { position: absolute; z-index: 3; inset: 0; display: grid; align-content: center; justify-items: center; background: var(--paper); color: var(--muted); font-size: 11px; }
 .loading-state[hidden], .reader-error[hidden] { display: none; }
 .spinner { width: 25px; height: 25px; border: 2px solid #deded4; border-top-color: var(--green); border-radius: 50%; animation: spin .8s linear infinite; }
@@ -134,6 +134,7 @@ button { color: inherit; }
 .page-button:disabled { opacity: .4; cursor: default; }
 .reader-column.is-scrolling .page-button { display: none; }
 .reader-column.is-scrolling .viewer { overflow-x: hidden; overflow-y: auto; }
+.reader-column.is-scrolling .viewer iframe { max-width: 100% !important; }
 .progress-group { min-width: 0; flex: 1; display: flex; align-items: center; gap: 12px; }
 .progress-track { height: 3px; flex: 1; overflow: hidden; background: #e5e3d9; border-radius: 5px; }
 .progress-fill { width: 0; height: 100%; background: #718269; border-radius: 5px; transition: width .25s; }
@@ -226,7 +227,7 @@ body.theme-dark .welcome-card h2 em { color: #aebc9e; }
   .sidebar { position: fixed; z-index: 10; inset: 64px auto 0 0; width: min(300px, 84vw); min-height: 0; padding: 23px 20px 18px; overflow: auto; box-shadow: 12px 0 30px #24271f12; transform: translateX(-110%); transition: transform .25s ease; }
   .sidebar.is-open { transform: translateX(0); }
   .sidebar-toggle, .show-sidebar { display: inline-grid; }
-  .reader-column { min-height: calc(100vh - 64px - 184px); flex: 1; padding: 0 17px 13px; }
+  .reader-column { height: calc(100vh - 64px - 184px); min-height: 520px; flex: 0 0 auto; padding: 0 17px 13px; }
   .reader-toolbar { min-height: 52px; }
   .reader-stage { min-height: 390px; }
   .viewer { min-height: 390px; max-height: calc(100vh - 330px); }
