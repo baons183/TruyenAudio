@@ -329,6 +329,22 @@
     readerGestureDocuments.add(contentDocument);
     let pointerStart = null;
     let touchStart = null;
+    contentDocument.addEventListener("click", (event) => {
+      const link = event.target.closest?.("a[href]");
+      const href = link?.getAttribute("href")?.trim();
+      if (!href || /^([a-z][a-z\d+.-]*:|\/\/)/i.test(href) || !rendition) return;
+
+      event.preventDefault();
+      event.stopPropagation();
+      const target = new URL(href, contentDocument.baseURI);
+      const targetHref = `${target.pathname.replace(/^\/+/, "")}${target.search}${target.hash}`;
+      stopSpeech();
+      showReaderChrome();
+      rendition.display(targetHref).catch((error) => {
+        console.error("Không thể mở liên kết trong sách:", error);
+        setError("Không thể mở chương được chọn trong sách này.");
+      });
+    }, { capture: true });
     contentDocument.addEventListener("click", showReaderChrome, { passive: true });
     contentDocument.addEventListener("touchstart", (event) => {
       const touch = event.changedTouches[0];
