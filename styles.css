@@ -192,6 +192,8 @@ button { color: inherit; }
 .spinner { width: 25px; height: 25px; border: 2px solid #deded4; border-top-color: var(--green); border-radius: 50%; animation: spin .8s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 .reader-error { position: absolute; z-index: 4; max-width: 440px; margin: 20px; padding: 15px 18px; color: #7f433e; background: #f7e9e5; border-radius: 8px; font-size: 12px; line-height: 1.6; }
+.fullscreen-hint { position: absolute; z-index: 5; right: 14px; bottom: 14px; left: 14px; margin: 0 auto; padding: 10px 14px; color: #fffefa; background: #24271fe8; border-radius: 8px; font-size: 11px; line-height: 1.5; text-align: center; }
+.fullscreen-hint[hidden] { display: none; }
 .page-controls { min-height: 63px; display: flex; align-items: center; gap: 17px; padding-top: 12px; border-top: 1px solid #e9e7df; }
 .page-button { width: 33px; height: 33px; flex: 0 0 auto; display: grid; place-items: center; color: #7e8076; background: transparent; border: 1px solid #e6e4db; border-radius: 50%; cursor: pointer; }
 .page-button:hover:not(:disabled) { color: var(--green-dark); background: #eeeee7; }

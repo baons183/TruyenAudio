@@ -274,6 +274,13 @@
     window.clearTimeout(readerChromeTimer);
     document.body.classList.remove("is-immersive", "reader-chrome-visible");
     $("#app-shell").classList.remove("audio-panel-hidden");
+    if (document.fullscreenElement && document.exitFullscreen) {
+      try {
+        await document.exitFullscreen();
+      } catch (error) {
+        console.warn("Không thể thoát chế độ toàn màn hình:", error);
+      }
+    }
     if (currentBookId && rendition) {
       try {
         window.clearTimeout(savePositionTimer);
@@ -386,6 +393,29 @@
     readerError.textContent = message;
     readerError.hidden = false;
     loadingState.hidden = true;
+  }
+
+  function setFullscreenHint(message) {
+    const hint = $("#fullscreen-hint");
+    hint.textContent = message;
+    hint.hidden = false;
+    window.setTimeout(() => {
+      if (hint.textContent === message) hint.hidden = true;
+    }, 7000);
+  }
+
+  async function enterReadingFullscreen() {
+    if (window.innerWidth > 650 || document.fullscreenElement || window.matchMedia("(display-mode: standalone)").matches || navigator.standalone) return;
+    if (!document.documentElement.requestFullscreen) {
+      setFullscreenHint("Để ẩn thanh địa chỉ, hãy thêm Trang Đọc vào Màn hình chính rồi mở bằng biểu tượng ứng dụng.");
+      return;
+    }
+    try {
+      await document.documentElement.requestFullscreen();
+    } catch (error) {
+      console.warn("Trình duyệt không cho phép bật toàn màn hình:", error);
+      setFullscreenHint("Trình duyệt chưa cho phép ẩn thanh địa chỉ. Hãy thêm Trang Đọc vào Màn hình chính để mở như ứng dụng.");
+    }
   }
 
   function setSpeechStatus(message, active = false) {
@@ -720,6 +750,7 @@
       return;
     }
 
+    const fullscreenRequest = enterReadingFullscreen();
     stopSpeech();
     window.clearTimeout(savePositionTimer);
     if (currentBookId && rendition) {
@@ -730,6 +761,7 @@
         console.error("Không thể lưu vị trí trước khi mở sách khác:", error);
       }
     }
+    await fullscreenRequest;
     if (rendition) rendition.destroy();
     if (book) book.destroy();
     book = null;
@@ -966,6 +998,7 @@
     if (document.body.classList.contains("reader-chrome-visible")) showReaderChrome();
   }, { passive: true });
   $("#reader-column").addEventListener("scroll", hideReaderChrome, { capture: true, passive: true });
+  document.addEventListener("fullscreenchange", resizeRenditionToViewer);
   $("#theme-toggle").addEventListener("click", () => {
     document.body.classList.toggle("theme-sepia");
     if (!document.body.classList.contains("theme-sepia")) document.body.classList.toggle("theme-dark");
