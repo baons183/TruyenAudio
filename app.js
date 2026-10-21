@@ -177,14 +177,18 @@
       .trim();
   }
 
-  async function getChapterText() {
-    const renderedText = [...viewer.querySelectorAll("iframe")]
+  function getRenderedChapterText() {
+    return [...viewer.querySelectorAll("iframe")]
       .map((frame) => frame.contentDocument)
       .filter(Boolean)
       .map(readableTextFromDocument)
       .filter(Boolean)
       .join(" ")
       .trim();
+  }
+
+  async function getChapterText() {
+    const renderedText = getRenderedChapterText();
     if (renderedText) return renderedText;
 
     const location = rendition?.currentLocation();
@@ -267,9 +271,14 @@
         stopSpeech();
         setSpeechStatus("Không phát được giọng trực tuyến. Hãy kiểm tra kết nối mạng.");
       };
-      audioPlayer.play().catch(() => {
+      audioPlayer.play().catch((error) => {
         stopSpeech();
-        setSpeechStatus("Trình duyệt không cho phép phát âm thanh. Hãy nhấn nghe để thử lại.");
+        if (error.name === "NotAllowedError") {
+          setSpeechStatus("Trình duyệt chặn phát tự động. Hãy nhấn Nghe chương này để cấp quyền phát.");
+        } else {
+          setSpeechStatus("Không thể phát giọng trực tuyến. Hãy kiểm tra kết nối hoặc thử giọng đọc khác.");
+          console.error("Không phát được âm thanh đọc sách:", error);
+        }
       });
       return;
     }
@@ -298,7 +307,24 @@
     synth.speak(utterance);
   }
 
-  async function startSpeech() {
+  function prepareSpeech(text) {
+    if (!text) {
+      setSpeechStatus("Chương này chưa có nội dung văn bản");
+      return;
+    }
+    usingOnlineVoice = voiceSelect.value === "online-vi";
+    speechQueue = splitIntoChunks(text, usingOnlineVoice ? 180 : 220);
+    speechIndex = 0;
+    isPaused = false;
+    updateSpeechButtons(true);
+    setSpeechStatus(
+      usingOnlineVoice ? "Đang đọc bằng giọng tiếng Việt trực tuyến" : "Đang đọc chương này",
+      true,
+    );
+    speakNextChunk();
+  }
+
+  function startSpeech() {
     if (!book) {
       setSpeechStatus("Hãy mở sách để bắt đầu nghe");
       return;
@@ -335,26 +361,17 @@
     }
 
     stopSpeech();
-    setSpeechStatus("Đang chuẩn bị giọng đọc...");
-    try {
-      const text = await getChapterText();
-      if (!text) {
-        setSpeechStatus("Chương này chưa có nội dung văn bản");
-        return;
-      }
-      usingOnlineVoice = voiceSelect.value === "online-vi";
-      speechQueue = splitIntoChunks(text, usingOnlineVoice ? 180 : 220);
-      speechIndex = 0;
-      isPaused = false;
-      updateSpeechButtons(true);
-      setSpeechStatus(
-        usingOnlineVoice ? "Đang đọc bằng giọng tiếng Việt trực tuyến" : "Đang đọc chương này",
-        true,
-      );
-      speakNextChunk();
-    } catch (error) {
-      setSpeechStatus(error.message || "Không thể tải nội dung chương");
+    const renderedText = getRenderedChapterText();
+    if (renderedText) {
+      prepareSpeech(renderedText);
+      return;
     }
+
+    setSpeechStatus("Đang chuẩn bị giọng đọc...");
+    getChapterText().then(
+      prepareSpeech,
+      (error) => setSpeechStatus(error.message || "Không thể tải nội dung chương"),
+    );
   }
 
   function updateProgress(location) {
