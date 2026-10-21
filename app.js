@@ -345,11 +345,9 @@
         lastTouchLink = href;
         lastTouchLinkAt = Date.now();
       }
-      const target = new URL(href, contentDocument.baseURI);
-      const targetHref = `${target.pathname.replace(/^\/+/, "")}${target.search}${target.hash}`;
       stopSpeech();
       showReaderChrome();
-      rendition.display(targetHref).catch((error) => {
+      rendition.display(href).catch((error) => {
         console.error("Không thể mở liên kết trong sách:", error);
         setError("Không thể mở chương được chọn trong sách này.");
       });
@@ -495,7 +493,10 @@
         const targetSection = book.spine.get(item.href?.split("#")[0]);
         currentSpineIndex = targetSection?.index ?? null;
         setChapterLabel(item.label);
-        rendition.display(item.href);
+        rendition.display(item.href).catch((error) => {
+          console.error("Không thể mở chương từ mục lục:", error);
+          setError("Không thể mở chương được chọn từ mục lục.");
+        });
         if (window.innerWidth <= 650) $("#sidebar").classList.remove("is-open");
       });
       tocList.append(button);
