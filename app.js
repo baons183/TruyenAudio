@@ -160,7 +160,7 @@
         "font-family": `${fontFamily} !important`,
       },
       "h1, h2, h3": { "line-height": "1.4" },
-      p: { "line-height": "1.85" },
+      p: { "line-height": "1.85", "text-align": "justify" },
     });
     rendition.themes.fontSize(`${fontSize}%`);
   }
