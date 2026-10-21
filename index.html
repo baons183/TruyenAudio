@@ -10,7 +10,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:wght@500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=20261021-6">
+    <link rel="stylesheet" href="styles.css?v=20261021-7">
   </head>
   <body>
     <header class="topbar">
@@ -28,7 +28,7 @@
       </div>
     </header>
 
-    <main class="app-shell">
+    <main class="app-shell" id="app-shell">
       <aside class="sidebar" id="sidebar">
         <div class="sidebar-top">
           <div>
@@ -77,6 +77,9 @@
             <span id="chapter-label">Không gian đọc của bạn</span>
           </div>
           <div class="toolbar-controls">
+            <button class="icon-button show-audio-panel" id="show-audio-panel" type="button" aria-controls="audio-panel" aria-expanded="false" aria-label="Hiện bảng nghe sách" title="Hiện bảng nghe sách" hidden>
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2v20M8 6v12M4 9v6m12-10v14m4-11v8"/></svg>
+            </button>
             <button class="icon-button" id="font-smaller" type="button" aria-label="Giảm cỡ chữ" title="Giảm cỡ chữ">A<sup>−</sup></button>
             <button class="icon-button" id="font-larger" type="button" aria-label="Tăng cỡ chữ" title="Tăng cỡ chữ">A<sup>+</sup></button>
             <span class="toolbar-divider"></span>
@@ -161,7 +164,7 @@
         </div>
       </section>
 
-      <aside class="audio-panel" aria-label="Điều khiển đọc thành tiếng">
+      <aside class="audio-panel" id="audio-panel" aria-label="Điều khiển đọc thành tiếng">
         <div class="audio-panel-heading">
           <div class="audio-heading-icon" aria-hidden="true">
             <svg viewBox="0 0 24 24"><path d="M12 2v20M8 6v12M4 9v6m12-10v14m4-11v8"/></svg>
@@ -170,6 +173,9 @@
             <p class="eyebrow">NGHE SÁCH</p>
             <h2>Đọc thành tiếng</h2>
           </div>
+          <button class="icon-button hide-audio-panel" id="hide-audio-panel" type="button" aria-controls="audio-panel" aria-expanded="true" aria-label="Ẩn bảng nghe sách" title="Ẩn bảng nghe sách">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14"/></svg>
+          </button>
         </div>
 
         <div class="audio-illustration" id="audio-illustration" aria-hidden="true">
@@ -232,6 +238,6 @@
 
     <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/epubjs@0.3.93/dist/epub.min.js"></script>
-    <script src="app.js?v=20261021-6"></script>
+    <script src="app.js?v=20261021-7"></script>
   </body>
 </html>

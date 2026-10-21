@@ -131,6 +131,7 @@
   }
 
   function syncReaderSettingsControls() {
+    $("#sidebar").style.setProperty("--reader-font-scale", String(readerPreferences.fontSize / 100));
     $("#reader-font").value = readerPreferences.fontFamily;
     $("#reader-font-size").value = String(readerPreferences.fontSize);
     $("#reader-font-size-value").textContent = `${readerPreferences.fontSize}%`;
@@ -714,6 +715,17 @@
     syncReaderSettingsControls();
     applyReaderPreferences();
     persistReaderPreferences();
+  });
+  $("#hide-audio-panel").addEventListener("click", () => {
+    $("#app-shell").classList.add("audio-panel-hidden");
+    $("#hide-audio-panel").setAttribute("aria-expanded", "false");
+    $("#show-audio-panel").hidden = false;
+    $("#show-audio-panel").setAttribute("aria-expanded", "false");
+  });
+  $("#show-audio-panel").addEventListener("click", () => {
+    $("#app-shell").classList.remove("audio-panel-hidden");
+    $("#hide-audio-panel").setAttribute("aria-expanded", "true");
+    $("#show-audio-panel").hidden = true;
   });
   $("#reading-mode-toggle").addEventListener("click", () => {
     if (!rendition) return;
