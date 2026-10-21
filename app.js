@@ -47,7 +47,7 @@
   let readingMode = "scrolled-doc";
   let savePositionTimer = 0;
   let readerChromeTimer = 0;
-  let readerGestureDocument = null;
+  const readerGestureDocuments = new WeakSet();
   const tocLabelsBySpineIndex = new Map();
   let storagePromise;
 
@@ -258,6 +258,12 @@
     document.body.classList.add("is-reading");
     document.body.classList.add("is-immersive");
     hideReaderChrome();
+    if (window.innerWidth <= 650) {
+      $("#app-shell").classList.add("audio-panel-hidden");
+      $("#hide-audio-panel").setAttribute("aria-expanded", "false");
+      $("#show-audio-panel").hidden = false;
+      $("#show-audio-panel").setAttribute("aria-expanded", "false");
+    }
     $("#home-screen").hidden = true;
     $("#app-shell").hidden = false;
     $("#home-button").hidden = false;
@@ -267,6 +273,7 @@
     stopSpeech();
     window.clearTimeout(readerChromeTimer);
     document.body.classList.remove("is-immersive", "reader-chrome-visible");
+    $("#app-shell").classList.remove("audio-panel-hidden");
     if (currentBookId && rendition) {
       try {
         window.clearTimeout(savePositionTimer);
@@ -312,9 +319,34 @@
   }
 
   function bindReaderGestures(contentDocument) {
-    if (!contentDocument || readerGestureDocument === contentDocument) return;
-    readerGestureDocument = contentDocument;
+    if (!contentDocument || readerGestureDocuments.has(contentDocument)) return;
+    readerGestureDocuments.add(contentDocument);
     let pointerStart = null;
+    let touchStart = null;
+    contentDocument.addEventListener("click", showReaderChrome, { passive: true });
+    contentDocument.addEventListener("touchstart", (event) => {
+      const touch = event.changedTouches[0];
+      if (touch) touchStart = { x: touch.clientX, y: touch.clientY };
+    }, { passive: true });
+    contentDocument.addEventListener("touchmove", (event) => {
+      const touch = event.changedTouches[0];
+      if (!touch || !touchStart) return;
+      if (Math.hypot(touch.clientX - touchStart.x, touch.clientY - touchStart.y) > 12) {
+        touchStart = null;
+        hideReaderChrome();
+      }
+    }, { passive: true });
+    contentDocument.addEventListener("touchend", (event) => {
+      const touch = event.changedTouches[0];
+      if (!touch || !touchStart) return;
+      const distance = Math.hypot(touch.clientX - touchStart.x, touch.clientY - touchStart.y);
+      touchStart = null;
+      if (distance <= 12) showReaderChrome();
+    }, { passive: true });
+    contentDocument.addEventListener("touchcancel", () => {
+      touchStart = null;
+      hideReaderChrome();
+    }, { passive: true });
     contentDocument.addEventListener("pointerdown", (event) => {
       pointerStart = { x: event.clientX, y: event.clientY, time: Date.now() };
     }, { passive: true });
@@ -705,7 +737,6 @@
     currentFileName = fileName;
     currentBookId = savedRecord?.id || `${file.name}:${file.size}:${file.lastModified}`;
     currentSpineIndex = null;
-    readerGestureDocument = null;
     tocLabelsBySpineIndex.clear();
     readerError.hidden = true;
     loadingState.hidden = false;
@@ -922,6 +953,7 @@
     $("#app-shell").classList.remove("audio-panel-hidden");
     $("#hide-audio-panel").setAttribute("aria-expanded", "true");
     $("#show-audio-panel").hidden = true;
+    showReaderChrome();
     resizeRenditionToViewer();
   });
   $("#reading-mode-toggle").addEventListener("click", () => {

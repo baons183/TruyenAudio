@@ -330,6 +330,7 @@ body.theme-dark .welcome-card h2 em { color: #aebc9e; }
   .app-shell { position: relative; height: auto; min-height: calc(100vh - 64px); display: flex; flex-direction: column; }
   body.is-immersive .app-shell { min-height: 100vh; min-height: 100dvh; }
   body.is-immersive.reader-chrome-visible .app-shell { min-height: calc(100vh - 68px); min-height: calc(100dvh - 68px); }
+  body.is-immersive .app-shell.audio-panel-hidden .audio-panel { display: none; }
   .sidebar { position: fixed; z-index: 10; inset: 64px auto 0 0; width: min(300px, 84vw); height: auto; min-height: 0; padding: 23px 20px 18px; overflow: auto; box-shadow: 12px 0 30px #24271f12; transform: translateX(-110%); transition: transform .25s ease; }
   .sidebar.is-open { transform: translateX(0); }
   .sidebar-toggle, .show-sidebar { display: inline-grid; }
@@ -344,13 +345,14 @@ body.theme-dark .welcome-card h2 em { color: #aebc9e; }
   .toc-tools { gap: 5px; }
   .toc-jump input { width: 34px; }
   .reader-column { height: calc(100vh - 64px - 184px); min-height: 520px; flex: 0 0 auto; padding: 0 17px 13px; }
-  body.is-immersive .reader-column { height: calc(100vh - 184px); height: calc(100dvh - 184px); }
-  body.is-immersive.reader-chrome-visible .reader-column { height: calc(100vh - 68px - 184px); height: calc(100dvh - 68px - 184px); }
+  body.is-immersive .reader-column { height: 100vh; height: 100dvh; min-height: 0; padding: 0 10px 10px; }
+  body.is-immersive.reader-chrome-visible .reader-column { height: calc(100vh - 68px); height: calc(100dvh - 68px); }
   .app-shell.audio-panel-hidden .reader-column { height: calc(100vh - 64px); }
   .app-shell.audio-panel-hidden .viewer { max-height: none; }
   .reader-toolbar { min-height: 52px; }
   body.is-immersive .reader-toolbar { position: fixed; z-index: 12; top: 0; right: 0; left: 0; min-height: 52px; padding: 0 17px; background: var(--surface); border-bottom: 1px solid var(--line); box-shadow: 0 5px 16px #24271f12; transform: translateY(-110%); visibility: hidden; transition: transform .2s ease, visibility .2s; }
   body.is-immersive.reader-chrome-visible .reader-toolbar { top: 68px; transform: translateY(0); visibility: visible; }
+  body.is-immersive .viewer { max-height: none; }
   .reader-stage { min-height: 390px; }
   .viewer { min-height: 390px; max-height: calc(100vh - 330px); }
   .welcome-card { padding-right: 4px; padding-left: 4px; }
