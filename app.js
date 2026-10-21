@@ -15,6 +15,19 @@
   const audioIllustration = $("#audio-illustration");
   const synth = window.speechSynthesis;
   const audioPlayer = new Audio();
+  const defaultReaderPreferences = {
+    fontFamily: "georgia",
+    fontSize: 100,
+    textColor: "#35372f",
+    backgroundColor: "#fffefa",
+  };
+  const readerFontFamilies = {
+    georgia: "Georgia, 'Times New Roman', serif",
+    arial: "Arial, Helvetica, sans-serif",
+    times: "'Times New Roman', Times, serif",
+    verdana: "Verdana, Geneva, sans-serif",
+    mono: "Consolas, 'Courier New', monospace",
+  };
 
   let book = null;
   let rendition = null;
@@ -27,9 +40,11 @@
   let currentUtterance = null;
   let usingOnlineVoice = false;
   let isPaused = false;
-  let fontSize = 100;
+  let readerPreferences = { ...defaultReaderPreferences };
+  let fontSize = readerPreferences.fontSize;
   let currentBookId = "";
   let currentSpineIndex = null;
+  let readingMode = "scrolled-doc";
   let savePositionTimer = 0;
   const tocLabelsBySpineIndex = new Map();
   let storagePromise;
@@ -94,6 +109,78 @@
     return setting ? getStoredBook(setting.value) : null;
   }
 
+  async function getReaderPreferences() {
+    const database = await openStorage();
+    const transaction = database.transaction("settings", "readonly");
+    const setting = await requestResult(transaction.objectStore("settings").get("readerPreferences"));
+    return setting?.value || null;
+  }
+
+  async function saveReaderPreferences() {
+    const database = await openStorage();
+    const transaction = database.transaction("settings", "readwrite");
+    const complete = transactionComplete(transaction);
+    transaction.objectStore("settings").put({ key: "readerPreferences", value: readerPreferences });
+    await complete;
+  }
+
+  function setReaderSettingsStatus(message, isError = false) {
+    const status = $("#reader-settings-status");
+    status.textContent = message;
+    status.classList.toggle("is-error", isError);
+  }
+
+  function syncReaderSettingsControls() {
+    $("#reader-font").value = readerPreferences.fontFamily;
+    $("#reader-font-size").value = String(readerPreferences.fontSize);
+    $("#reader-font-size-value").textContent = `${readerPreferences.fontSize}%`;
+    $("#reader-text-color").value = readerPreferences.textColor;
+    $("#reader-background-color").value = readerPreferences.backgroundColor;
+  }
+
+  function applyReaderPreferences() {
+    fontSize = readerPreferences.fontSize;
+    viewer.style.backgroundColor = readerPreferences.backgroundColor;
+    if (!rendition) return;
+
+    const fontFamily = readerFontFamilies[readerPreferences.fontFamily];
+    rendition.themes.default({
+      html: { background: `${readerPreferences.backgroundColor} !important` },
+      body: {
+        color: `${readerPreferences.textColor} !important`,
+        background: `${readerPreferences.backgroundColor} !important`,
+        "font-family": `${fontFamily} !important`,
+        "font-size": `${fontSize}% !important`,
+        "line-height": "1.85 !important",
+        padding: "12px 24px",
+      },
+      "body *": {
+        color: `${readerPreferences.textColor} !important`,
+        "font-family": `${fontFamily} !important`,
+      },
+      "h1, h2, h3": { "line-height": "1.4" },
+      p: { "line-height": "1.85" },
+    });
+    rendition.themes.fontSize(`${fontSize}%`);
+  }
+
+  function updateReaderPreference(key, value) {
+    readerPreferences = { ...readerPreferences, [key]: value };
+    syncReaderSettingsControls();
+    applyReaderPreferences();
+    setReaderSettingsStatus("Đang lưu...");
+  }
+
+  async function persistReaderPreferences() {
+    try {
+      await saveReaderPreferences();
+      setReaderSettingsStatus("Đã lưu tùy chỉnh trên thiết bị");
+    } catch (error) {
+      console.error("Không thể lưu tùy chỉnh hiển thị:", error);
+      setReaderSettingsStatus("Không thể lưu tùy chỉnh trên thiết bị", true);
+    }
+  }
+
   async function saveCurrentPosition(cfi) {
     if (!currentBookId || !cfi) return;
     const record = await getStoredBook(currentBookId);
@@ -107,6 +194,16 @@
     const status = $("#book-save-status");
     status.textContent = message;
     status.classList.toggle("is-error", isError);
+  }
+
+  function updateReadingModeControl() {
+    const isScrolling = readingMode === "scrolled-doc";
+    const button = $("#reading-mode-toggle");
+    button.setAttribute("aria-pressed", String(isScrolling));
+    button.title = isScrolling ? "Chuyển sang chế độ lật trang" : "Chuyển sang cuộn dọc";
+    button.setAttribute("aria-label", button.title);
+    $("#reading-mode-label").textContent = isScrolling ? "Cuộn" : "Trang";
+    $("#reader-column")?.classList.toggle("is-scrolling", isScrolling);
   }
 
   function setError(message) {
@@ -472,25 +569,10 @@
         width: "100%",
         height: "100%",
         spread: "none",
-        flow: "paginated",
+        flow: readingMode,
         manager: "default",
       });
-      rendition.themes.default({
-        body: {
-          color: "#35372f !important",
-          background: "transparent !important",
-          "font-family": "Georgia, 'Times New Roman', serif !important",
-          "line-height": "1.85 !important",
-          padding: "12px 24px",
-        },
-        "body *": { color: "#35372f !important" },
-        "h1, h2, h3": {
-          "font-family": "Georgia, 'Times New Roman', serif !important",
-          "line-height": "1.4",
-        },
-        p: { "line-height": "1.85" },
-      });
-      rendition.themes.fontSize(`${fontSize}%`);
+      applyReaderPreferences();
       rendition.on("relocated", updateProgress);
       await rendition.display(savedRecord?.cfi || undefined);
 
@@ -604,12 +686,40 @@
     if (currentUtterance && synth?.speaking) currentUtterance.volume = volume;
   });
   $("#font-smaller").addEventListener("click", () => {
-    fontSize = Math.max(80, fontSize - 10);
-    rendition?.themes.fontSize(`${fontSize}%`);
+    updateReaderPreference("fontSize", Math.max(80, fontSize - 10));
+    persistReaderPreferences();
   });
   $("#font-larger").addEventListener("click", () => {
-    fontSize = Math.min(160, fontSize + 10);
-    rendition?.themes.fontSize(`${fontSize}%`);
+    updateReaderPreference("fontSize", Math.min(180, fontSize + 10));
+    persistReaderPreferences();
+  });
+  $("#reader-font").addEventListener("change", (event) => {
+    updateReaderPreference("fontFamily", event.target.value);
+    persistReaderPreferences();
+  });
+  $("#reader-font-size").addEventListener("input", (event) => {
+    updateReaderPreference("fontSize", Number(event.target.value));
+  });
+  $("#reader-font-size").addEventListener("change", persistReaderPreferences);
+  $("#reader-text-color").addEventListener("input", (event) => {
+    updateReaderPreference("textColor", event.target.value);
+  });
+  $("#reader-text-color").addEventListener("change", persistReaderPreferences);
+  $("#reader-background-color").addEventListener("input", (event) => {
+    updateReaderPreference("backgroundColor", event.target.value);
+  });
+  $("#reader-background-color").addEventListener("change", persistReaderPreferences);
+  $("#reader-settings-reset").addEventListener("click", () => {
+    readerPreferences = { ...defaultReaderPreferences };
+    syncReaderSettingsControls();
+    applyReaderPreferences();
+    persistReaderPreferences();
+  });
+  $("#reading-mode-toggle").addEventListener("click", () => {
+    if (!rendition) return;
+    readingMode = readingMode === "scrolled-doc" ? "paginated" : "scrolled-doc";
+    rendition.flow(readingMode);
+    updateReadingModeControl();
   });
   $("#theme-toggle").addEventListener("click", () => {
     document.body.classList.toggle("theme-sepia");
@@ -648,7 +758,32 @@
     synth.addEventListener("voiceschanged", loadVoices);
   }
   audioPlayer.volume = Number($("#volume-range").value);
-  getLastStoredBook().then((savedRecord) => {
+  updateReadingModeControl();
+  syncReaderSettingsControls();
+  getReaderPreferences().then((preferences) => {
+    if (!preferences) return;
+    const fontSizeValue = Number(preferences.fontSize);
+    readerPreferences = {
+      fontFamily: Object.hasOwn(readerFontFamilies, preferences.fontFamily)
+        ? preferences.fontFamily
+        : defaultReaderPreferences.fontFamily,
+      fontSize: Number.isFinite(fontSizeValue) && fontSizeValue >= 80 && fontSizeValue <= 180
+        ? Math.round(fontSizeValue / 10) * 10
+        : defaultReaderPreferences.fontSize,
+      textColor: /^#[0-9a-f]{6}$/i.test(preferences.textColor)
+        ? preferences.textColor
+        : defaultReaderPreferences.textColor,
+      backgroundColor: /^#[0-9a-f]{6}$/i.test(preferences.backgroundColor)
+        ? preferences.backgroundColor
+        : defaultReaderPreferences.backgroundColor,
+    };
+    syncReaderSettingsControls();
+    applyReaderPreferences();
+    setReaderSettingsStatus("Đã khôi phục tùy chỉnh");
+  }).catch((error) => {
+    console.error("Không thể khôi phục tùy chỉnh hiển thị:", error);
+    setReaderSettingsStatus("Không thể đọc tùy chỉnh đã lưu", true);
+  }).then(() => getLastStoredBook()).then((savedRecord) => {
     if (savedRecord?.data) return openBook(null, savedRecord);
   }).catch((error) => {
     console.error("Không thể khôi phục sách đã lưu:", error);

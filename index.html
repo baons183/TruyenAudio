@@ -10,7 +10,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:wght@500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="styles.css?v=20261021-3">
   </head>
   <body>
     <header class="topbar">
@@ -67,7 +67,7 @@
         </div>
       </aside>
 
-      <section class="reader-column" aria-label="Trình đọc sách">
+      <section class="reader-column" id="reader-column" aria-label="Trình đọc sách">
         <div class="reader-toolbar">
           <button class="icon-button show-sidebar" id="show-sidebar" type="button" aria-label="Mở mục lục" title="Mở mục lục">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
@@ -80,6 +80,42 @@
             <button class="icon-button" id="font-smaller" type="button" aria-label="Giảm cỡ chữ" title="Giảm cỡ chữ">A<sup>−</sup></button>
             <button class="icon-button" id="font-larger" type="button" aria-label="Tăng cỡ chữ" title="Tăng cỡ chữ">A<sup>+</sup></button>
             <span class="toolbar-divider"></span>
+            <details class="reader-settings" id="reader-settings">
+              <summary class="icon-button reader-settings-toggle" aria-label="Tùy chỉnh hiển thị" title="Tùy chỉnh hiển thị">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v2m0 14v2M3 12h2m14 0h2m-2.64-6.36-1.42 1.42M7.06 16.94l-1.42 1.42m12.72 0-1.42-1.42M7.06 7.06 5.64 5.64"/><circle cx="12" cy="12" r="4"/></svg>
+              </summary>
+              <div class="reader-settings-panel" aria-label="Tùy chỉnh hiển thị sách">
+                <p class="reader-settings-title">Tùy chỉnh hiển thị</p>
+                <label class="reader-setting">
+                  <span>Font chữ</span>
+                  <select id="reader-font">
+                    <option value="georgia">Georgia</option>
+                    <option value="arial">Arial</option>
+                    <option value="times">Times New Roman</option>
+                    <option value="verdana">Verdana</option>
+                    <option value="mono">Monospace</option>
+                  </select>
+                </label>
+                <label class="reader-setting">
+                  <span class="reader-setting-heading">Cỡ chữ <output id="reader-font-size-value">100%</output></span>
+                  <input id="reader-font-size" type="range" min="80" max="180" step="10" value="100" aria-label="Cỡ chữ nội dung">
+                </label>
+                <label class="reader-setting color-reader-setting">
+                  <span>Màu chữ</span>
+                  <input id="reader-text-color" type="color" value="#35372f" aria-label="Chọn màu chữ">
+                </label>
+                <label class="reader-setting color-reader-setting">
+                  <span>Màu nền</span>
+                  <input id="reader-background-color" type="color" value="#fffefa" aria-label="Chọn màu nền">
+                </label>
+                <button class="reader-settings-reset" id="reader-settings-reset" type="button">Khôi phục mặc định</button>
+                <span class="reader-settings-status" id="reader-settings-status" role="status" aria-live="polite"></span>
+              </div>
+            </details>
+            <button class="icon-button reading-mode-button" id="reading-mode-toggle" type="button" aria-pressed="true" title="Chuyển sang chế độ lật trang">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v16m-5-5 5 5 5-5M5 5h14"/></svg>
+              <span id="reading-mode-label">Cuộn</span>
+            </button>
             <button class="icon-button theme-button" id="theme-toggle" type="button" aria-label="Đổi giao diện" title="Đổi giao diện">
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.5 15.5A8.5 8.5 0 0 1 8.5 3.5a8.6 8.6 0 1 0 12 12Z"/></svg>
             </button>
@@ -196,6 +232,6 @@
 
     <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/epubjs@0.3.93/dist/epub.min.js"></script>
-    <script src="app.js?v=20261021-2"></script>
+    <script src="app.js?v=20261021-3"></script>
   </body>
 </html>

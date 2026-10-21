@@ -79,6 +79,25 @@ button { color: inherit; }
 .toolbar-controls { display: flex; align-items: center; gap: 3px; }
 .toolbar-controls .icon-button { font-size: 12px; font-weight: 600; }
 .toolbar-controls sup { margin-left: 1px; font-size: 9px; }
+.reading-mode-button { display: inline-flex; width: auto; min-width: 55px; gap: 4px; padding: 0 6px; font-size: 10px !important; }
+.reading-mode-button svg { width: 15px; height: 15px; }
+.reading-mode-button[aria-pressed="true"] { color: var(--green-dark); background: var(--green-soft); }
+.reader-settings { position: relative; }
+.reader-settings-toggle { list-style: none; cursor: pointer; }
+.reader-settings-toggle::-webkit-details-marker { display: none; }
+.reader-settings[open] .reader-settings-toggle { color: var(--green-dark); background: var(--green-soft); }
+.reader-settings-panel { position: absolute; z-index: 8; top: calc(100% + 10px); right: -42px; width: 250px; padding: 16px; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 12px 30px #24271f1c; }
+.reader-settings-title { margin: 0 0 13px; color: var(--ink); font-size: 12px; font-weight: 700; }
+.reader-setting { display: grid; gap: 7px; margin-top: 12px; color: var(--muted); font-size: 10px; }
+.reader-setting select { width: 100%; height: 34px; padding: 0 8px; color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: 6px; font-size: 11px; }
+.reader-setting-heading { display: flex; justify-content: space-between; }
+.reader-setting-heading output { color: var(--green-dark); font-weight: 600; }
+.reader-setting input[type="range"] { width: 100%; margin: 5px 0 0; accent-color: var(--green); }
+.color-reader-setting { grid-template-columns: 1fr auto; align-items: center; }
+.color-reader-setting input[type="color"] { width: 38px; height: 28px; padding: 2px; background: var(--surface); border: 1px solid var(--line); border-radius: 5px; cursor: pointer; }
+.reader-settings-reset { width: 100%; margin-top: 15px; padding: 8px; color: var(--green-dark); background: var(--green-soft); border: 0; border-radius: 6px; cursor: pointer; font-size: 10px; font-weight: 600; }
+.reader-settings-status { display: block; min-height: 12px; margin-top: 8px; color: var(--muted); font-size: 9px; }
+.reader-settings-status.is-error { color: #a65349; }
 .toolbar-divider { height: 20px; margin: 0 5px; border-left: 1px solid var(--line); }
 .show-sidebar { display: none; }
 .reader-stage { position: relative; flex: 1; min-height: 470px; display: grid; place-items: center; }
@@ -103,7 +122,7 @@ button { color: inherit; }
 .format-note { display: block; margin-top: 11px; color: #aaa99e; font-size: 9px; }
 .viewer { display: none; width: 100%; height: 100%; min-height: 470px; max-height: calc(100vh - 225px); }
 .viewer.is-visible { display: block; }
-.viewer iframe { display: block; width: 100%; height: 100%; background: transparent !important; }
+.viewer iframe { display: block; max-width: 100% !important; background: transparent !important; }
 .loading-state { position: absolute; z-index: 3; inset: 0; display: grid; align-content: center; justify-items: center; background: var(--paper); color: var(--muted); font-size: 11px; }
 .loading-state[hidden], .reader-error[hidden] { display: none; }
 .spinner { width: 25px; height: 25px; border: 2px solid #deded4; border-top-color: var(--green); border-radius: 50%; animation: spin .8s linear infinite; }
@@ -113,6 +132,8 @@ button { color: inherit; }
 .page-button { width: 33px; height: 33px; flex: 0 0 auto; display: grid; place-items: center; color: #7e8076; background: transparent; border: 1px solid #e6e4db; border-radius: 50%; cursor: pointer; }
 .page-button:hover:not(:disabled) { color: var(--green-dark); background: #eeeee7; }
 .page-button:disabled { opacity: .4; cursor: default; }
+.reader-column.is-scrolling .page-button { display: none; }
+.reader-column.is-scrolling .viewer { overflow-x: hidden; overflow-y: auto; }
 .progress-group { min-width: 0; flex: 1; display: flex; align-items: center; gap: 12px; }
 .progress-track { height: 3px; flex: 1; overflow: hidden; background: #e5e3d9; border-radius: 5px; }
 .progress-fill { width: 0; height: 100%; background: #718269; border-radius: 5px; transition: width .25s; }
