@@ -10,25 +10,38 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:wght@500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=20261021-12">
+    <link rel="stylesheet" href="styles.css?v=20261021-13">
   </head>
   <body>
     <header class="topbar">
-      <a class="brand" href="#" aria-label="Trang Đọc, trang chủ">
-        <span class="brand-mark" aria-hidden="true">t.</span>
-        <span>trang đọc<span class="brand-period">.</span></span>
-      </a>
+      <button class="home-button" id="home-button" type="button" aria-label="Về thư viện sách" hidden>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1h-6v-7h-4v7H4a1 1 0 0 1-1-1z"/></svg>
+        <span>Thư viện</span>
+      </button>
       <div class="topbar-actions">
         <span class="privacy-note"><span class="privacy-dot"></span> Sách của bạn chỉ ở trên thiết bị này</span>
+      </div>
+      <input id="file-input" type="file" accept=".epub,application/epub+zip" hidden>
+    </header>
+
+    <main class="home-screen" id="home-screen">
+      <section class="library-header">
+        <div>
+          <p class="eyebrow">THƯ VIỆN CỦA BẠN</p>
+          <h1>Sách đã tải</h1>
+          <p class="library-description">Sách được lưu trên thiết bị này và chỉ bạn mới truy cập được.</p>
+        </div>
         <button class="button button-primary" id="open-book" type="button">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14m-7-7h14"/></svg>
           Mở sách
         </button>
-        <input id="file-input" type="file" accept=".epub,application/epub+zip" hidden>
-      </div>
-    </header>
+      </section>
+      <p class="library-status" id="library-status" role="status" hidden></p>
+      <section class="library-books" id="library-books" aria-label="Sách đã tải"></section>
+      <p class="library-empty" id="library-empty">Chưa có sách nào. Chọn “Mở sách” để thêm EPUB vào thư viện.</p>
+    </main>
 
-    <main class="app-shell" id="app-shell">
+    <main class="app-shell" id="app-shell" hidden>
       <aside class="sidebar" id="sidebar">
         <div class="sidebar-top">
           <div>
@@ -244,6 +257,6 @@
 
     <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/epubjs@0.3.93/dist/epub.min.js"></script>
-    <script src="app.js?v=20261021-11"></script>
+    <script src="app.js?v=20261021-13"></script>
   </body>
 </html>

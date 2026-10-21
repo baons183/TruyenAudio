@@ -34,6 +34,22 @@ button { color: inherit; }
 .button-primary { color: white; background: var(--green); }
 .button-primary:hover:not(:disabled) { background: var(--green-dark); }
 .button svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; }
+.home-button { display: inline-flex; align-items: center; gap: 8px; padding: 9px 12px; color: var(--green-dark); background: var(--green-soft); border: 0; border-radius: 8px; cursor: pointer; font-size: 12px; font-weight: 600; }
+.home-button svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.home-button[hidden], .app-shell[hidden], .home-screen[hidden] { display: none; }
+.home-screen { width: min(100% - 48px, 1040px); min-height: calc(100vh - 76px); margin: 0 auto; padding: 54px 0; }
+.library-header { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding-bottom: 28px; border-bottom: 1px solid var(--line); }
+.library-header h1 { margin: 8px 0 0; font-family: var(--serif); font-size: 30px; font-weight: 600; }
+.library-description { margin: 8px 0 0; color: var(--muted); font-size: 12px; }
+.library-status { margin: 20px 0 0; color: var(--muted); font-size: 12px; }
+.library-status.is-error { color: #a65349; }
+.library-books { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px; margin-top: 26px; }
+.library-book { min-width: 0; padding: 20px; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 5px 16px #24271f08; }
+.library-book h2 { overflow: hidden; margin: 0; font-family: var(--serif); font-size: 16px; text-overflow: ellipsis; white-space: nowrap; }
+.library-book p { margin: 8px 0 18px; color: var(--muted); font-size: 11px; }
+.library-book .button { min-height: 36px; font-size: 11px; }
+.library-empty { margin: 28px 0; padding: 38px 22px; color: var(--muted); background: var(--surface); border: 1px dashed var(--line); border-radius: 12px; font-size: 13px; text-align: center; }
+.library-empty[hidden] { display: none; }
 
 .app-shell { height: calc(100vh - 76px); min-height: 620px; display: grid; grid-template-columns: 258px minmax(400px, 1fr) 290px; }
 .sidebar { height: 100%; min-height: 0; display: flex; flex-direction: column; padding: 33px 20px 20px 25px; overflow: hidden; background: #f9f8f3; border-right: 1px solid var(--line); }
@@ -236,7 +252,17 @@ body.theme-dark .welcome-card h2 em { color: #aebc9e; }
 }
 @media (max-width: 650px) {
   .topbar { height: 64px; padding: 0 17px; }
-  .brand { font-size: 18px; }
+  .home-screen { width: calc(100% - 32px); min-height: calc(100vh - 64px); padding: 30px 0; }
+  .library-header { align-items: flex-start; }
+  .library-header h1 { font-size: 25px; }
+  .library-description { max-width: 220px; font-size: 11px; line-height: 1.5; }
+  .library-header .button { min-height: 38px; gap: 6px; padding: 0 11px; font-size: 11px; }
+  .library-books { grid-template-columns: 1fr; gap: 10px; margin-top: 18px; }
+  .library-book { display: flex; align-items: center; gap: 10px; padding: 13px; }
+  .library-book h2 { min-width: 0; flex: 1; font-size: 13px; }
+  .library-book p { display: none; }
+  .library-book .button { min-height: 34px; flex: 0 0 auto; padding: 0 10px; }
+  .home-button { padding: 8px 10px; }
   .privacy-note { display: none; }
   .app-shell { position: relative; height: auto; min-height: calc(100vh - 64px); display: flex; flex-direction: column; }
   .sidebar { position: fixed; z-index: 10; inset: 64px auto 0 0; width: min(300px, 84vw); height: auto; min-height: 0; padding: 23px 20px 18px; overflow: auto; box-shadow: 12px 0 30px #24271f12; transform: translateX(-110%); transition: transform .25s ease; }
@@ -262,6 +288,7 @@ body.theme-dark .welcome-card h2 em { color: #aebc9e; }
   .welcome-art { transform: scale(.88); margin-top: -8px; margin-bottom: 5px; }
   .welcome-card h2 { font-size: 29px; }
   .progress-group { gap: 7px; }
+  #progress-label { display: none; }
   .progress-group span { min-width: 90px; font-size: 8px; }
   .page-controls { gap: 10px; }
   .audio-panel { grid-template-columns: 1fr 1fr; column-gap: 12px; padding: 15px 17px 18px; }

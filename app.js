@@ -102,11 +102,10 @@
     return requestResult(transaction.objectStore("books").get(id));
   }
 
-  async function getLastStoredBook() {
+  async function getStoredBooks() {
     const database = await openStorage();
-    const transaction = database.transaction("settings", "readonly");
-    const setting = await requestResult(transaction.objectStore("settings").get("lastBookId"));
-    return setting ? getStoredBook(setting.value) : null;
+    const transaction = database.transaction("books", "readonly");
+    return requestResult(transaction.objectStore("books").getAll());
   }
 
   async function getReaderPreferences() {
@@ -195,6 +194,65 @@
     const status = $("#book-save-status");
     status.textContent = message;
     status.classList.toggle("is-error", isError);
+  }
+
+  function setLibraryStatus(message, isError = false) {
+    const status = $("#library-status");
+    status.textContent = message;
+    status.hidden = !message;
+    status.classList.toggle("is-error", isError);
+  }
+
+  async function renderLibrary() {
+    const books = await getStoredBooks();
+    books.sort((first, second) => (second.updatedAt || 0) - (first.updatedAt || 0));
+    const bookList = $("#library-books");
+    bookList.replaceChildren();
+    $("#library-empty").hidden = books.length > 0;
+    for (const record of books) {
+      const card = document.createElement("article");
+      card.className = "library-book";
+      const title = document.createElement("h2");
+      title.textContent = record.title || record.name.replace(/\.epub$/i, "");
+      const details = document.createElement("p");
+      details.textContent = record.author || "Đã lưu trên thiết bị";
+      const button = document.createElement("button");
+      button.className = "button button-primary";
+      button.type = "button";
+      button.textContent = "Đọc tiếp";
+      button.addEventListener("click", () => openBook(null, record));
+      card.append(title, details, button);
+      bookList.append(card);
+    }
+    setLibraryStatus("");
+  }
+
+  function showReaderView() {
+    $("#home-screen").hidden = true;
+    $("#app-shell").hidden = false;
+    $("#home-button").hidden = false;
+  }
+
+  async function showHomeView() {
+    stopSpeech();
+    if (currentBookId && rendition) {
+      try {
+        const cfi = rendition.currentLocation()?.start?.cfi;
+        if (cfi) await saveCurrentPosition(cfi);
+      } catch (error) {
+        console.error("Không thể lưu vị trí đọc:", error);
+        setSaveStatus("Không lưu được vị trí đọc trên thiết bị", true);
+      }
+    }
+    $("#app-shell").hidden = true;
+    $("#home-screen").hidden = false;
+    $("#home-button").hidden = true;
+    try {
+      await renderLibrary();
+    } catch (error) {
+      console.error("Không thể tải thư viện sách:", error);
+      setLibraryStatus("Không thể đọc thư viện sách trên thiết bị.", true);
+    }
   }
 
   function updateReadingModeControl() {
@@ -496,7 +554,7 @@
   }
 
   function updateProgress(location) {
-    if (!location) return;
+    if (!location?.start) return;
     const percentage = location.start.percentage || 0;
     currentProgress = Math.min(100, Math.max(0, Math.round(percentage * 100)));
     $("#progress-fill").style.width = `${currentProgress}%`;
@@ -604,13 +662,14 @@
       chapterInput.disabled = chapterButtons.length === 0;
       $("#toc-jump-form button").disabled = chapterButtons.length === 0;
       const displayedLocation = rendition.currentLocation();
-      if (displayedLocation) {
+      if (displayedLocation?.start) {
         currentSpineIndex = displayedLocation.start.index;
         setChapterLabel(
           tocLabelsBySpineIndex.get(currentSpineIndex) || `Chương ${currentSpineIndex + 1}`,
         );
       }
-      updateBookInfo(book.packaging?.metadata || {}, currentFileName);
+      const metadata = book.packaging?.metadata || {};
+      updateBookInfo(metadata, currentFileName);
       enableReading(true);
       $("#prev-page").disabled = !savedRecord?.cfi;
       $("#next-page").disabled = false;
@@ -625,6 +684,8 @@
           await saveBookRecord({
             id: currentBookId,
             name: file.name,
+            title: metadata.title?.trim() || file.name.replace(/\.epub$/i, ""),
+            author: metadata.creator?.trim() || "",
             size: file.size,
             lastModified: file.lastModified,
             data: bookData,
@@ -637,7 +698,26 @@
           setSaveStatus("Sách đã mở nhưng không thể lưu trên thiết bị", true);
         }
       } else {
-        setSaveStatus("Đã lưu sách và vị trí đọc trên thiết bị");
+        try {
+          await saveBookRecord({
+            ...savedRecord,
+            title: metadata.title?.trim() || savedRecord.title || fileName.replace(/\.epub$/i, ""),
+            author: metadata.creator?.trim() || savedRecord.author || "",
+            cfi: rendition.currentLocation()?.start?.cfi || savedRecord.cfi,
+            updatedAt: Date.now(),
+          });
+          setSaveStatus("Đã lưu sách và vị trí đọc trên thiết bị");
+        } catch (error) {
+          console.error("Không thể cập nhật thông tin sách đã lưu:", error);
+          setSaveStatus("Sách đã mở nhưng không thể lưu thông tin cập nhật", true);
+        }
+      }
+      showReaderView();
+      try {
+        await renderLibrary();
+      } catch (error) {
+        console.error("Không thể cập nhật thư viện sách:", error);
+        setLibraryStatus("Sách đã mở nhưng không thể cập nhật thư viện.", true);
       }
     } catch (error) {
       console.error("Không thể mở tệp EPUB:", error);
@@ -683,6 +763,7 @@
   }
 
   $("#open-book").addEventListener("click", () => fileInput.click());
+  $("#home-button").addEventListener("click", showHomeView);
   $("#welcome-open").addEventListener("click", () => fileInput.click());
   fileInput.addEventListener("change", () => {
     openBook(fileInput.files?.[0]);
@@ -826,10 +907,8 @@
   }).catch((error) => {
     console.error("Không thể khôi phục tùy chỉnh hiển thị:", error);
     setReaderSettingsStatus("Không thể đọc tùy chỉnh đã lưu", true);
-  }).then(() => getLastStoredBook()).then((savedRecord) => {
-    if (savedRecord?.data) return openBook(null, savedRecord);
-  }).catch((error) => {
-    console.error("Không thể khôi phục sách đã lưu:", error);
-    setSaveStatus("Không thể đọc thư viện sách trên thiết bị", true);
+  }).then(() => renderLibrary()).catch((error) => {
+    console.error("Không thể tải thư viện sách:", error);
+    setLibraryStatus("Không thể đọc thư viện sách trên thiết bị.", true);
   });
 })();
