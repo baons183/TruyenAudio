@@ -10,7 +10,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:wght@500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=20261021-10">
+    <link rel="stylesheet" href="styles.css?v=20261021-11">
   </head>
   <body>
     <header class="topbar">
@@ -55,7 +55,13 @@
 
         <div class="toc-heading">
           <p class="eyebrow">MỤC LỤC</p>
-          <span id="chapter-count"></span>
+          <div class="toc-tools">
+            <span class="chapter-count" id="chapter-count"></span>
+            <form class="toc-jump" id="toc-jump-form" aria-label="Đi tới chương">
+              <input id="toc-jump-input" type="number" min="1" placeholder="#" aria-label="Số chương" required disabled>
+              <button type="submit" aria-label="Đi tới chương đã nhập" disabled>Đi</button>
+            </form>
+          </div>
         </div>
         <nav class="toc-list" id="toc-list" aria-label="Mục lục sách">
           <p class="empty-toc">Mục lục sẽ xuất hiện ở đây.</p>
@@ -238,6 +244,6 @@
 
     <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/epubjs@0.3.93/dist/epub.min.js"></script>
-    <script src="app.js?v=20261021-9"></script>
+    <script src="app.js?v=20261021-11"></script>
   </body>
 </html>

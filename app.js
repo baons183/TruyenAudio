@@ -275,6 +275,14 @@
     }
   }
 
+  function goToChapter(number) {
+    const chapters = tocList.querySelectorAll("button");
+    const button = chapters[number - 1];
+    if (!button) return false;
+    button.click();
+    return true;
+  }
+
   function readableTextFromDocument(doc) {
     if (!doc.body) return "";
     const body = doc.body.cloneNode(true);
@@ -589,7 +597,12 @@
 
       const navigation = book.navigation?.toc || [];
       populateToc(navigation);
-      $("#chapter-count").textContent = navigation.length ? `${navigation.length} chương` : "";
+      const chapterButtons = tocList.querySelectorAll("button");
+      $("#chapter-count").textContent = chapterButtons.length ? `${chapterButtons.length} chương` : "";
+      const chapterInput = $("#toc-jump-input");
+      chapterInput.max = String(chapterButtons.length);
+      chapterInput.disabled = chapterButtons.length === 0;
+      $("#toc-jump-form button").disabled = chapterButtons.length === 0;
       const displayedLocation = rendition.currentLocation();
       if (displayedLocation) {
         currentSpineIndex = displayedLocation.start.index;
@@ -752,6 +765,12 @@
   });
   $("#show-sidebar").addEventListener("click", () => $("#sidebar").classList.add("is-open"));
   $("#sidebar-toggle").addEventListener("click", () => $("#sidebar").classList.remove("is-open"));
+  $("#toc-jump-form").addEventListener("submit", (event) => {
+    event.preventDefault();
+    const input = $("#toc-jump-input");
+    if (!input.reportValidity()) return;
+    goToChapter(Number(input.value));
+  });
 
   document.addEventListener("keydown", (event) => {
     if (event.target.matches("input, select, textarea, button")) return;
