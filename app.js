@@ -46,6 +46,8 @@
   let currentSpineIndex = null;
   let readingMode = "scrolled-doc";
   let savePositionTimer = 0;
+  let readerChromeTimer = 0;
+  let readerGestureDocument = null;
   const tocLabelsBySpineIndex = new Map();
   let storagePromise;
 
@@ -254,6 +256,8 @@
 
   function showReaderView() {
     document.body.classList.add("is-reading");
+    document.body.classList.add("is-immersive");
+    hideReaderChrome();
     $("#home-screen").hidden = true;
     $("#app-shell").hidden = false;
     $("#home-button").hidden = false;
@@ -261,6 +265,8 @@
 
   async function showHomeView() {
     stopSpeech();
+    window.clearTimeout(readerChromeTimer);
+    document.body.classList.remove("is-immersive", "reader-chrome-visible");
     if (currentBookId && rendition) {
       try {
         window.clearTimeout(savePositionTimer);
@@ -291,6 +297,47 @@
     button.setAttribute("aria-label", button.title);
     $("#reading-mode-label").textContent = isScrolling ? "Cuộn" : "Trang";
     $("#reader-column")?.classList.toggle("is-scrolling", isScrolling);
+  }
+
+  function hideReaderChrome() {
+    window.clearTimeout(readerChromeTimer);
+    document.body.classList.remove("reader-chrome-visible");
+  }
+
+  function showReaderChrome() {
+    if (window.innerWidth > 650 || !document.body.classList.contains("is-immersive")) return;
+    window.clearTimeout(readerChromeTimer);
+    document.body.classList.add("reader-chrome-visible");
+    readerChromeTimer = window.setTimeout(hideReaderChrome, 4000);
+  }
+
+  function bindReaderGestures(contentDocument) {
+    if (!contentDocument || readerGestureDocument === contentDocument) return;
+    readerGestureDocument = contentDocument;
+    let pointerStart = null;
+    contentDocument.addEventListener("pointerdown", (event) => {
+      pointerStart = { x: event.clientX, y: event.clientY, time: Date.now() };
+    }, { passive: true });
+    contentDocument.addEventListener("pointermove", (event) => {
+      if (!pointerStart) return;
+      const distance = Math.hypot(event.clientX - pointerStart.x, event.clientY - pointerStart.y);
+      if (distance > 12) {
+        pointerStart = null;
+        hideReaderChrome();
+      }
+    }, { passive: true });
+    contentDocument.addEventListener("pointerup", (event) => {
+      if (!pointerStart) return;
+      const distance = Math.hypot(event.clientX - pointerStart.x, event.clientY - pointerStart.y);
+      const duration = Date.now() - pointerStart.time;
+      pointerStart = null;
+      if (distance <= 12 && duration < 500) showReaderChrome();
+    }, { passive: true });
+    contentDocument.addEventListener("pointercancel", () => {
+      pointerStart = null;
+      hideReaderChrome();
+    }, { passive: true });
+    contentDocument.addEventListener("scroll", hideReaderChrome, { capture: true, passive: true });
   }
 
   function resizeRenditionToViewer() {
@@ -658,6 +705,7 @@
     currentFileName = fileName;
     currentBookId = savedRecord?.id || `${file.name}:${file.size}:${file.lastModified}`;
     currentSpineIndex = null;
+    readerGestureDocument = null;
     tocLabelsBySpineIndex.clear();
     readerError.hidden = true;
     loadingState.hidden = false;
@@ -693,6 +741,7 @@
         manager: "default",
       });
       applyReaderPreferences();
+      rendition.on("rendered", (_section, view) => bindReaderGestures(view?.contents?.document));
       rendition.on("relocated", updateProgress);
       await rendition.display(savedRecord?.cfi || undefined);
 
@@ -881,6 +930,10 @@
     rendition.flow(readingMode);
     updateReadingModeControl();
   });
+  $("#reader-toolbar").addEventListener("pointerdown", () => {
+    if (document.body.classList.contains("reader-chrome-visible")) showReaderChrome();
+  }, { passive: true });
+  $("#reader-column").addEventListener("scroll", hideReaderChrome, { capture: true, passive: true });
   $("#theme-toggle").addEventListener("click", () => {
     document.body.classList.toggle("theme-sepia");
     if (!document.body.classList.contains("theme-sepia")) document.body.classList.toggle("theme-dark");
