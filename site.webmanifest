@@ -3,7 +3,7 @@
   "name": "Sách của bạn - nghe và đọc",
   "short_name": "Sách của bạn",
   "description": "Đọc và nghe sách EPUB trên thiết bị của bạn.",
-  "start_url": "/TruyenAudio/",
+  "start_url": "/TruyenAudio/?source=homescreen",
   "scope": "/TruyenAudio/",
   "display": "standalone",
   "display_override": ["fullscreen", "standalone"],

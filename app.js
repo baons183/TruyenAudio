@@ -329,13 +329,22 @@
     readerGestureDocuments.add(contentDocument);
     let pointerStart = null;
     let touchStart = null;
-    contentDocument.addEventListener("click", (event) => {
-      const link = event.target.closest?.("a[href]");
+    let lastTouchLink = "";
+    let lastTouchLinkAt = 0;
+    const handleReaderLink = (event, isTouch = false) => {
+      const eventTarget = event.target?.nodeType === 1 ? event.target : event.target?.parentElement;
+      const link = eventTarget?.closest?.("a[href]");
       const href = link?.getAttribute("href")?.trim();
-      if (!href || /^([a-z][a-z\d+.-]*:|\/\/)/i.test(href) || !rendition) return;
+      if (!href || /^([a-z][a-z\d+.-]*:|\/\/)/i.test(href)) return false;
 
       event.preventDefault();
       event.stopPropagation();
+      if (!rendition) return true;
+      if (!isTouch && href === lastTouchLink && Date.now() - lastTouchLinkAt < 800) return true;
+      if (isTouch) {
+        lastTouchLink = href;
+        lastTouchLinkAt = Date.now();
+      }
       const target = new URL(href, contentDocument.baseURI);
       const targetHref = `${target.pathname.replace(/^\/+/, "")}${target.search}${target.hash}`;
       stopSpeech();
@@ -344,7 +353,16 @@
         console.error("Không thể mở liên kết trong sách:", error);
         setError("Không thể mở chương được chọn trong sách này.");
       });
-    }, { capture: true });
+      return true;
+    };
+    contentDocument.addEventListener("click", (event) => handleReaderLink(event), { capture: true });
+    contentDocument.addEventListener("touchend", (event) => {
+      if (!touchStart) return;
+      const touch = event.changedTouches[0];
+      if (!touch || Math.hypot(touch.clientX - touchStart.x, touch.clientY - touchStart.y) > 12) return;
+      if (handleReaderLink(event, true)) return;
+      showReaderChrome();
+    }, { capture: true, passive: false });
     contentDocument.addEventListener("click", showReaderChrome, { passive: true });
     contentDocument.addEventListener("touchstart", (event) => {
       const touch = event.changedTouches[0];
@@ -819,7 +837,9 @@
         manager: "default",
       });
       applyReaderPreferences();
-      rendition.on("rendered", (_section, view) => bindReaderGestures(view?.contents?.document));
+      rendition.on("rendered", (_section, view) => {
+        bindReaderGestures(view?.contents?.document || view?.iframe?.contentDocument);
+      });
       rendition.on("relocated", updateProgress);
       await rendition.display(savedRecord?.cfi || undefined);
 
