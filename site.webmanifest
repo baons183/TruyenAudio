@@ -1,10 +1,10 @@
 {
-  "id": "./",
+  "id": "/TruyenAudio/",
   "name": "Sách của bạn - nghe và đọc",
   "short_name": "Sách của bạn",
   "description": "Đọc và nghe sách EPUB trên thiết bị của bạn.",
-  "start_url": "./",
-  "scope": "./",
+  "start_url": "/TruyenAudio/",
+  "scope": "/TruyenAudio/",
   "display": "standalone",
   "display_override": ["fullscreen", "standalone"],
   "background_color": "#f6f4ee",
