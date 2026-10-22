@@ -563,16 +563,28 @@
     currentUtterance = null;
     speechQueue = [];
     isPaused = false;
-    speechSpineIndex = section.index;
-    setChapterLabel(tocLabelsBySpineIndex.get(section.index) || `Chương ${section.index + 1}`);
     setSpeechStatus(offset > 0 ? "Đang chuyển sang chương sau..." : "Đang chuyển về chương trước...", true);
-    rendition.display(section.href).catch((error) => {
-      console.error("Không thể hiển thị chương mới:", error);
-    });
     try {
-      const doc = await section.load(book.load.bind(book));
-      if (speechSpineIndex !== section.index) return;
-      prepareSpeech(readableTextFromDocument(doc));
+      // Bỏ qua các mục không có chữ (trang bìa, trang chỉ có ảnh...) để đọc liền mạch.
+      let target = section;
+      let text = "";
+      for (let tries = 0; target && tries < 10; tries += 1) {
+        speechSpineIndex = target.index;
+        text = await loadSectionText(target);
+        if (speechSpineIndex !== target.index) return;
+        if (text) break;
+        target = offset > 0 ? target.next() : target.prev();
+      }
+      if (!target || !text) {
+        stopSpeech();
+        setSpeechStatus(offset > 0 ? "Đã hết sách" : "Đây là chương đầu tiên");
+        return;
+      }
+      setChapterLabel(tocLabelsBySpineIndex.get(target.index) || `Chương ${target.index + 1}`);
+      rendition.display(target.href).catch((error) => {
+        console.error("Không thể hiển thị chương mới:", error);
+      });
+      prepareSpeech(text);
     } catch (error) {
       console.error("Không thể chuyển chương:", error);
       stopSpeech();
@@ -665,6 +677,10 @@
     const body = doc.body.cloneNode(true);
     const ignored = "script, style, nav, [aria-hidden='true'], svg";
     for (const node of body.querySelectorAll(ignored)) node.remove();
+    // Bản sao không được hiển thị nên innerText không tự ngắt dòng: chèn khoảng trắng
+    // sau mỗi khối để tiêu đề và đoạn văn không bị dính chữ khi đọc.
+    const blocks = "p, div, h1, h2, h3, h4, h5, h6, li, dt, dd, blockquote, section, article, tr, td, th, figcaption, br";
+    for (const node of body.querySelectorAll(blocks)) node.after(doc.createTextNode(" "));
     return (body.innerText || body.textContent || "")
       .replace(/\s+/g, " ")
       .trim();
@@ -680,6 +696,12 @@
       .trim();
   }
 
+  // section.load() của epub.js trả về phần tử <html>, không phải document.
+  async function loadSectionText(section) {
+    const root = await section.load(book.load.bind(book));
+    return readableTextFromDocument(root?.ownerDocument || root);
+  }
+
   async function getChapterText() {
     const renderedText = getRenderedChapterText();
     if (renderedText) return renderedText;
@@ -690,9 +712,8 @@
       : null;
     if (!section) throw new Error("Không xác định được nội dung chương này.");
 
-    const doc = await section.load(book.load.bind(book));
     try {
-      return readableTextFromDocument(doc);
+      return await loadSectionText(section);
     } finally {
       section.unload();
     }
