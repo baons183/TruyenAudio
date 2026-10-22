@@ -7,6 +7,8 @@ on:
     paths:
       - "index.html"
       - "app.js"
+      - "converters.js"
+      - "vendor/**"
       - "styles.css"
       - "package.json"
       - "capacitor.config.json"

@@ -239,7 +239,7 @@
       card.className = "library-book";
       card.tabIndex = 0;
       card.setAttribute("role", "button");
-      const titleText = record.title || record.name.replace(/\.epub$/i, "");
+      const titleText = record.title || stripBookExtension(record.name);
       card.setAttribute("aria-label", `Mở tiếp sách ${titleText}`);
       const openSavedBook = () => openBook(null, record);
       card.addEventListener("click", openSavedBook);
@@ -1093,7 +1093,7 @@
   }
 
   function updateBookInfo(metadata, fileName) {
-    const title = metadata.title?.trim() || fileName.replace(/\.epub$/i, "");
+    const title = metadata.title?.trim() || stripBookExtension(fileName);
     const author = metadata.creator?.trim() || "Tác giả chưa rõ";
     $("#book-title").textContent = title;
     $("#book-author").textContent = author;
@@ -1112,11 +1112,15 @@
     });
   }
 
+  function stripBookExtension(name) {
+    return window.BookConverters?.stripExtension(name) ?? String(name || "").replace(/\.epub$/i, "");
+  }
+
   async function openBook(file, savedRecord = null) {
     if (!file && !savedRecord) return;
     const fileName = savedRecord?.name || file.name;
-    if (!/\.epub$/i.test(fileName) && file?.type !== "application/epub+zip") {
-      setError("Vui lòng chọn tệp sách có định dạng .epub.");
+    if (!savedRecord && !window.BookConverters?.isSupported(fileName) && file?.type !== "application/epub+zip") {
+      setError("Định dạng này chưa được hỗ trợ. Hãy chọn sách EPUB, MOBI, AZW3, PRC, TXT, FB2, DOCX hoặc HTML.");
       return;
     }
     if (typeof window.ePub !== "function") {
@@ -1156,7 +1160,14 @@
 
     let loadingStep = "đọc tệp sách";
     try {
-      const bookData = savedRecord?.data || await readFileAsArrayBuffer(file);
+      let bookData = savedRecord?.data;
+      if (!bookData) {
+        // Định dạng khác EPUB được chuyển thành EPUB một lần, rồi lưu bản EPUB vào thư viện.
+        loadingStep = "chuyển đổi định dạng sách";
+        $("#loading-state p").textContent = "Đang chuẩn bị sách...";
+        bookData = window.BookConverters ? await window.BookConverters.toEpub(file) : await readFileAsArrayBuffer(file);
+        $("#loading-state p").textContent = "Đang mở trang sách...";
+      }
       const signature = new Uint8Array(bookData, 0, Math.min(4, bookData.byteLength));
       if (signature[0] !== 0x50 || signature[1] !== 0x4b) {
         throw new Error("Tệp được chọn không có cấu trúc EPUB/ZIP hợp lệ.");
@@ -1226,7 +1237,7 @@
           await saveBookRecord({
             id: currentBookId,
             name: file.name,
-            title: metadata.title?.trim() || file.name.replace(/\.epub$/i, ""),
+            title: metadata.title?.trim() || stripBookExtension(file.name),
             author: metadata.creator?.trim() || "",
             size: file.size,
             lastModified: file.lastModified,
@@ -1243,7 +1254,7 @@
         try {
           await saveBookRecord({
             ...savedRecord,
-            title: metadata.title?.trim() || savedRecord.title || fileName.replace(/\.epub$/i, ""),
+            title: metadata.title?.trim() || savedRecord.title || stripBookExtension(fileName),
             author: metadata.creator?.trim() || savedRecord.author || "",
             cfi: rendition.currentLocation()?.start?.cfi || savedRecord.cfi,
             updatedAt: Date.now(),

@@ -9,9 +9,10 @@ const out = join(root, "www");
 rmSync(out, { recursive: true, force: true });
 mkdirSync(join(out, "vendor"), { recursive: true });
 
-for (const file of ["index.html", "app.js", "styles.css", "book.svg", "site.webmanifest"]) {
+for (const file of ["index.html", "app.js", "converters.js", "styles.css", "book.svg", "site.webmanifest"]) {
   cpSync(join(root, file), join(out, file));
 }
+cpSync(join(root, "vendor"), join(out, "vendor"), { recursive: true });
 if (existsSync(join(root, "icons"))) cpSync(join(root, "icons"), join(out, "icons"), { recursive: true });
 
 const modules = join(root, "node_modules");

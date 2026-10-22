@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="theme-color" content="#f6f4ee">
-    <meta name="description" content="Ứng dụng đọc sách EPUB và nghe đọc sách bằng giọng nói ngay trên trình duyệt.">
+    <meta name="description" content="Ứng dụng đọc sách (EPUB, MOBI, AZW3, TXT, FB2, DOCX, HTML) và nghe đọc sách bằng giọng nói ngay trên trình duyệt.">
     <meta name="referrer" content="no-referrer">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -15,7 +15,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:wght@500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=20261022-38">
+    <link rel="stylesheet" href="styles.css?v=20261022-39">
   </head>
   <body>
     <header class="topbar">
@@ -32,7 +32,7 @@
       <div class="topbar-actions">
         <span class="privacy-note"><span class="privacy-dot"></span> Sách của bạn chỉ ở trên thiết bị này</span>
       </div>
-      <input id="file-input" type="file" accept=".epub,application/epub+zip" hidden>
+      <input id="file-input" type="file" hidden>
     </header>
 
     <main class="home-screen" id="home-screen">
@@ -65,7 +65,7 @@
       </section>
       <p class="library-status" id="library-status" role="status" hidden></p>
       <section class="library-books" id="library-books" aria-label="Sách đã tải"></section>
-      <p class="library-empty" id="library-empty">Chưa có sách nào. Chọn “Mở sách” để thêm EPUB vào thư viện.</p>
+      <p class="library-empty" id="library-empty">Chưa có sách nào. Chọn “Mở sách” để thêm sách vào thư viện.</p>
     </main>
 
     <main class="app-shell" id="app-shell" hidden>
@@ -88,7 +88,7 @@
           </div>
           <div class="book-details">
             <h2 id="book-title">Chưa có sách</h2>
-            <p id="book-author">Chọn một tệp EPUB để bắt đầu</p>
+            <p id="book-author">Chọn một tệp sách để bắt đầu</p>
             <p class="book-save-status" id="book-save-status" aria-live="polite"></p>
           </div>
         </section>
@@ -181,12 +181,12 @@
             </div>
             <p class="eyebrow">MỘT KHOẢNG LẶNG DÀNH RIÊNG CHO BẠN</p>
             <h2>Mở một cuốn sách.<br><em>Đi đến một nơi khác.</em></h2>
-            <p class="welcome-copy">Chọn sách EPUB từ thiết bị của bạn để bắt đầu đọc hoặc nghe. Không tải lên máy chủ, không làm phiền.</p>
+            <p class="welcome-copy">Chọn sách từ thiết bị của bạn để bắt đầu đọc hoặc nghe. Không tải lên máy chủ, không làm phiền.</p>
             <button class="button button-primary welcome-button" id="welcome-open" type="button">
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14m-7-7h14"/></svg>
-              Chọn sách EPUB
+              Chọn sách
             </button>
-            <span class="format-note">Hỗ trợ tệp .epub</span>
+            <span class="format-note">Hỗ trợ EPUB, MOBI, AZW3, PRC, TXT, FB2, DOCX, HTML</span>
           </div>
           <div id="viewer" class="viewer" aria-label="Nội dung sách"></div>
           <div class="loading-state" id="loading-state" hidden>
@@ -293,6 +293,7 @@
 
     <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/epubjs@0.3.93/dist/epub.min.js"></script>
-    <script src="app.js?v=20261022-38"></script>
+    <script src="converters.js?v=20261022-39"></script>
+    <script src="app.js?v=20261022-39"></script>
   </body>
 </html>
