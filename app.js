@@ -522,8 +522,14 @@
     syncWakeLock();
   }
 
+  // Chương đang được đọc; có thể khác trang đang hiển thị khi máy khóa màn hình.
+  let speechSpineIndex = null;
+
   function adjacentChapterSection(offset) {
-    const index = rendition?.currentLocation()?.start?.index ?? currentSpineIndex;
+    const listening = playButton.classList.contains("is-playing") && speechSpineIndex !== null;
+    const index = listening
+      ? speechSpineIndex
+      : rendition?.currentLocation()?.start?.index ?? currentSpineIndex;
     const section = index !== null && index !== undefined ? book?.spine.get(index) : null;
     if (!section) return null;
     return (offset > 0 ? section.next() : section.prev()) || null;
@@ -537,11 +543,36 @@
       setSpeechStatus(offset > 0 ? "Đã hết sách" : "Đây là chương đầu tiên");
       return;
     }
-    stopSpeech();
-    if (keepListening) setSpeechStatus(offset > 0 ? "Đang chuyển sang chương sau..." : "Đang chuyển về chương trước...", true);
+    if (!keepListening) {
+      stopSpeech();
+      rendition.display(section.href).catch((error) => {
+        console.error("Không thể chuyển chương:", error);
+        setSpeechStatus("Không thể chuyển chương");
+      });
+      return;
+    }
+
+    // Khi màn hình khóa, iOS không cho phát lại audio đã bị gỡ và không vẽ trang mới,
+    // nên giữ nguyên trình phát, đọc nội dung chương thẳng từ EPUB rồi phát tiếp ngay.
+    audioPlayer.onended = null;
+    audioPlayer.onerror = null;
+    if (synth && (synth.speaking || synth.pending)) {
+      synth.cancel();
+      lastSynthCancelAt = Date.now();
+    }
+    currentUtterance = null;
+    speechQueue = [];
+    isPaused = false;
+    speechSpineIndex = section.index;
+    setChapterLabel(tocLabelsBySpineIndex.get(section.index) || `Chương ${section.index + 1}`);
+    setSpeechStatus(offset > 0 ? "Đang chuyển sang chương sau..." : "Đang chuyển về chương trước...", true);
+    rendition.display(section.href).catch((error) => {
+      console.error("Không thể hiển thị chương mới:", error);
+    });
     try {
-      await rendition.display(section.href);
-      if (keepListening) prepareSpeech(await getChapterText());
+      const doc = await section.load(book.load.bind(book));
+      if (speechSpineIndex !== section.index) return;
+      prepareSpeech(readableTextFromDocument(doc));
     } catch (error) {
       console.error("Không thể chuyển chương:", error);
       stopSpeech();
@@ -875,6 +906,7 @@
       synth.speak(unlock);
       synthUnlocked = true;
     }
+    speechSpineIndex = rendition?.currentLocation()?.start?.index ?? currentSpineIndex;
     const renderedText = getRenderedChapterText();
     if (renderedText) {
       prepareSpeech(renderedText);
