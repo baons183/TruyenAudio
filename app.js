@@ -489,6 +489,70 @@
     audioIllustration.classList.toggle("is-speaking", active);
   }
 
+  // Giọng trên máy (như Linh) dừng khi iOS khóa màn hình, nên giữ màn hình sáng trong lúc đọc.
+  let wakeLock = null;
+  let wakeLockWanted = false;
+
+  async function syncWakeLock() {
+    if (!("wakeLock" in navigator)) return;
+    try {
+      if (wakeLockWanted && !wakeLock && document.visibilityState === "visible") {
+        const lock = await navigator.wakeLock.request("screen");
+        if (!wakeLockWanted) {
+          await lock.release();
+          return;
+        }
+        wakeLock = lock;
+        lock.addEventListener("release", () => {
+          if (wakeLock === lock) wakeLock = null;
+        });
+      } else if (!wakeLockWanted && wakeLock) {
+        const lock = wakeLock;
+        wakeLock = null;
+        await lock.release();
+      }
+    } catch (error) {
+      console.warn("Không thể giữ màn hình sáng:", error);
+    }
+  }
+
+  function setKeepScreenOn(on) {
+    if (wakeLockWanted === on) return;
+    wakeLockWanted = on;
+    syncWakeLock();
+  }
+
+  function adjacentChapterSection(offset) {
+    const index = rendition?.currentLocation()?.start?.index ?? currentSpineIndex;
+    const section = index !== null && index !== undefined ? book?.spine.get(index) : null;
+    if (!section) return null;
+    return (offset > 0 ? section.next() : section.prev()) || null;
+  }
+
+  async function goToAdjacentChapter(offset, keepListening = isSpeechActive()) {
+    if (!rendition) return;
+    const section = adjacentChapterSection(offset);
+    if (!section) {
+      if (!keepListening) stopSpeech();
+      setSpeechStatus(offset > 0 ? "Đã hết sách" : "Đây là chương đầu tiên");
+      return;
+    }
+    stopSpeech();
+    if (keepListening) setSpeechStatus(offset > 0 ? "Đang chuyển sang chương sau..." : "Đang chuyển về chương trước...", true);
+    try {
+      await rendition.display(section.href);
+      if (keepListening) prepareSpeech(await getChapterText());
+    } catch (error) {
+      console.error("Không thể chuyển chương:", error);
+      stopSpeech();
+      setSpeechStatus("Không thể chuyển chương");
+    }
+  }
+
+  function isSpeechActive() {
+    return playButton.classList.contains("is-playing") && !isPaused;
+  }
+
   function updateMediaSession(isPlaying) {
     if (!("mediaSession" in navigator)) return;
     navigator.mediaSession.playbackState = isPlaying ? (isPaused ? "paused" : "playing") : "none";
@@ -506,6 +570,7 @@
 
   function updateSpeechButtons(isPlaying = false) {
     updateMediaSession(isPlaying);
+    setKeepScreenOn(isPlaying && !isPaused && !usingOnlineVoice);
     playButton.classList.toggle("is-playing", isPlaying);
     $("#play-label").textContent = isPlaying ? (isPaused ? "Tiếp tục nghe" : "Đang đọc") : "Nghe chương này";
   }
@@ -514,6 +579,8 @@
     $("#prev-page").disabled = !enabled;
     $("#next-page").disabled = !enabled;
     playButton.disabled = !enabled;
+    $("#prev-chapter").disabled = !enabled;
+    $("#next-chapter").disabled = !enabled;
     stopButton.disabled = !enabled;
     $("#audio-hint").textContent = enabled ? "Đọc nội dung chương hiện tại" : "Mở sách để bắt đầu";
   }
@@ -651,8 +718,12 @@
       speechQueue = [];
       currentUtterance = null;
       isPaused = false;
+      if (adjacentChapterSection(1)) {
+        goToAdjacentChapter(1, true);
+        return;
+      }
       updateSpeechButtons(false);
-      setSpeechStatus("Đã đọc xong chương này");
+      setSpeechStatus("Đã đọc xong cuốn sách");
       return;
     }
 
@@ -1139,6 +1210,9 @@
   $("#prev-page").addEventListener("click", () => rendition?.prev());
   $("#next-page").addEventListener("click", () => rendition?.next());
   playButton.addEventListener("click", startSpeech);
+  $("#prev-chapter").addEventListener("click", () => goToAdjacentChapter(-1));
+  $("#next-chapter").addEventListener("click", () => goToAdjacentChapter(1));
+  document.addEventListener("visibilitychange", syncWakeLock);
   stopButton.addEventListener("click", stopSpeech);
   voiceSelect.addEventListener("change", () => {
     if ((synth && synth.speaking) || !audioPlayer.paused || isPaused) {
@@ -1251,6 +1325,8 @@
         if (!isPaused && (speechQueue.length || !audioPlayer.paused)) startSpeech();
       },
       stop: stopSpeech,
+      previoustrack: () => goToAdjacentChapter(-1),
+      nexttrack: () => goToAdjacentChapter(1),
     };
     for (const [action, handler] of Object.entries(mediaActions)) {
       try {
