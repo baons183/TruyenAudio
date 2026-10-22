@@ -178,6 +178,7 @@
   function applyReaderPreferences() {
     fontSize = readerPreferences.fontSize;
     viewer.style.backgroundColor = readerPreferences.backgroundColor;
+    document.documentElement.style.setProperty("--reader-bg", readerPreferences.backgroundColor);
     if (!rendition) return;
 
     const fontFamily = readerFontFamilies[readerPreferences.fontFamily];
@@ -393,11 +394,38 @@
     readerChromeTimer = window.setTimeout(hideReaderChrome, 4000);
   }
 
+  function toggleReaderChrome() {
+    if (document.body.classList.contains("reader-chrome-visible")) hideReaderChrome();
+    else showReaderChrome();
+  }
+
+  // Vị trí chạm theo tỉ lệ bề ngang vùng đọc (0 = mép trái, 1 = mép phải).
+  function readerTapRatio(contentDocument, clientX) {
+    const frame = contentDocument.defaultView?.frameElement;
+    const viewerRect = viewer.getBoundingClientRect();
+    if (!frame || !viewerRect.width) return 0.5;
+    return (frame.getBoundingClientRect().left + clientX - viewerRect.left) / viewerRect.width;
+  }
+
+  // Chế độ lật trang: chạm mép trái/phải để lật, chạm giữa để bật/tắt thanh điều khiển.
+  function handleReaderTap(contentDocument, clientX) {
+    if (readingMode === "paginated" && rendition) {
+      const ratio = readerTapRatio(contentDocument, clientX);
+      if (ratio < 0.28 || ratio > 0.72) {
+        hideReaderChrome();
+        if (ratio < 0.28) rendition.prev();
+        else rendition.next();
+        return;
+      }
+    }
+    toggleReaderChrome();
+  }
+
   function bindReaderGestures(contentDocument) {
     if (!contentDocument || readerGestureDocuments.has(contentDocument)) return;
     readerGestureDocuments.add(contentDocument);
-    let pointerStart = null;
     let touchStart = null;
+    let lastTouchEndAt = 0;
     let lastTouchLink = "";
     let lastTouchLinkAt = 0;
     const handleReaderLink = (event, isTouch = false) => {
@@ -425,7 +453,10 @@
       return true;
     };
     contentDocument.addEventListener("click", (event) => {
-      if (!handleReaderLink(event)) showReaderChrome();
+      if (handleReaderLink(event)) return;
+      // Chạm trên màn hình cảm ứng đã được xử lý ở touchend.
+      if (Date.now() - lastTouchEndAt < 800) return;
+      handleReaderTap(contentDocument, event.clientX);
     }, { capture: true });
     contentDocument.addEventListener("touchstart", (event) => {
       const touch = event.changedTouches[0];
@@ -447,41 +478,23 @@
       const dy = touch.clientY - touchStart.y;
       const duration = Date.now() - touchStart.time;
       touchStart = null;
+      lastTouchEndAt = Date.now();
       // Vuốt ngang ở chế độ lật trang: trái sang trang sau, phải về trang trước.
-      if (readingMode === "paginated" && rendition && Math.abs(dx) > 40
-        && Math.abs(dx) > Math.abs(dy) * 1.5 && duration < 800) {
+      if (readingMode === "paginated" && rendition && Math.abs(dx) > 30
+        && Math.abs(dx) > Math.abs(dy) * 1.2 && duration < 1000) {
+        hideReaderChrome();
         if (dx < 0) rendition.next();
         else rendition.prev();
         return;
       }
-      if (Math.hypot(dx, dy) > 12) return;
+      // Kéo hoặc nhấn giữ (chọn chữ) thì không coi là chạm.
+      if (Math.hypot(dx, dy) > 10 || duration > 600) return;
       if (handleReaderLink(event, true)) return;
-      showReaderChrome();
+      if (event.cancelable) event.preventDefault();
+      handleReaderTap(contentDocument, touch.clientX);
     }, { capture: true, passive: false });
     contentDocument.addEventListener("touchcancel", () => {
       touchStart = null;
-      hideReaderChrome();
-    }, { capture: true, passive: true });
-    contentDocument.addEventListener("pointerdown", (event) => {
-      pointerStart = { x: event.clientX, y: event.clientY, time: Date.now() };
-    }, { capture: true, passive: true });
-    contentDocument.addEventListener("pointermove", (event) => {
-      if (!pointerStart) return;
-      const distance = Math.hypot(event.clientX - pointerStart.x, event.clientY - pointerStart.y);
-      if (distance > 12) {
-        pointerStart = null;
-        hideReaderChrome();
-      }
-    }, { capture: true, passive: true });
-    contentDocument.addEventListener("pointerup", (event) => {
-      if (!pointerStart) return;
-      const distance = Math.hypot(event.clientX - pointerStart.x, event.clientY - pointerStart.y);
-      const duration = Date.now() - pointerStart.time;
-      pointerStart = null;
-      if (distance <= 12 && duration < 500) showReaderChrome();
-    }, { capture: true, passive: true });
-    contentDocument.addEventListener("pointercancel", () => {
-      pointerStart = null;
       hideReaderChrome();
     }, { capture: true, passive: true });
     contentDocument.addEventListener("scroll", hideReaderChrome, { capture: true, passive: true });
