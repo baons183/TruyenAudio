@@ -407,7 +407,8 @@
   function showReaderView() {
     document.body.classList.add("is-reading");
     document.body.classList.add("is-immersive");
-    hideReaderChrome();
+    closeReaderPanels();
+    hideReaderChrome(true);
     if (isCompactReader()) setAudioPanelOpen(false);
     $("#home-screen").hidden = true;
     $("#app-shell").hidden = false;
@@ -474,7 +475,19 @@
     if (!isCompactReader()) resizeRenditionToViewer();
   }
 
-  function hideReaderChrome() {
+  function isReaderPanelOpen() {
+    return $("#reader-settings").open || $("#translate-settings").open;
+  }
+
+  function closeReaderPanels() {
+    $("#reader-settings").open = false;
+    $("#translate-settings").open = false;
+  }
+
+  // Khi bảng Dịch/Hiển thị đang mở thì giữ thanh công cụ (cuộn trong bảng không làm ẩn),
+  // trừ khi gọi hideReaderChrome(true).
+  function hideReaderChrome(force) {
+    if (force !== true && isReaderPanelOpen()) return;
     window.clearTimeout(readerChromeTimer);
     document.body.classList.remove("reader-chrome-visible");
   }
@@ -487,8 +500,12 @@
   }
 
   function toggleReaderChrome() {
-    if (document.body.classList.contains("reader-chrome-visible")) hideReaderChrome();
-    else showReaderChrome();
+    if (document.body.classList.contains("reader-chrome-visible")) {
+      closeReaderPanels();
+      hideReaderChrome(true);
+    } else {
+      showReaderChrome();
+    }
   }
 
   // Vị trí chạm theo tỉ lệ bề ngang vùng đọc (0 = mép trái, 1 = mép phải).
@@ -501,6 +518,12 @@
 
   // Chế độ lật trang: chạm mép trái/phải để lật, chạm giữa để bật/tắt thanh điều khiển.
   function handleReaderTap(contentDocument, clientX) {
+    // Chạm vào trang khi đang mở bảng: chỉ đóng bảng, không lật trang.
+    if (isReaderPanelOpen()) {
+      closeReaderPanels();
+      hideReaderChrome(true);
+      return;
+    }
     if (readingMode === "paginated" && rendition) {
       const ratio = readerTapRatio(contentDocument, clientX);
       if (ratio < 0.28 || ratio > 0.72) {
@@ -1928,6 +1951,16 @@
     if (document.body.classList.contains("reader-chrome-visible")) showReaderChrome();
   }, { passive: true });
   $("#reader-column").addEventListener("scroll", hideReaderChrome, { capture: true, passive: true });
+  // Chạm vào vùng trống của khung đọc (ngoài trang sách, vd. dưới chương ngắn) cũng bật/tắt thanh điều khiển.
+  viewer.addEventListener("click", (event) => {
+    if (event.target.closest("iframe")) return;
+    if (isReaderPanelOpen()) {
+      closeReaderPanels();
+      hideReaderChrome(true);
+      return;
+    }
+    toggleReaderChrome();
+  });
   document.addEventListener("fullscreenchange", resizeRenditionToViewer);
   $("#theme-toggle").addEventListener("click", () => {
     const current = readerThemeOrder.indexOf(readerPreferences.theme);
@@ -2114,7 +2147,11 @@
   // Chỉ mở một bảng (Dịch / Hiển thị) cùng lúc.
   for (const panel of ["#translate-settings", "#reader-settings"]) {
     $(panel).addEventListener("toggle", (event) => {
-      if (!event.target.open) return;
+      if (!event.target.open) {
+        // Đóng bảng xong mới bắt đầu đếm giờ tự ẩn thanh công cụ.
+        if (!isReaderPanelOpen() && document.body.classList.contains("reader-chrome-visible")) showReaderChrome();
+        return;
+      }
       for (const other of ["#translate-settings", "#reader-settings"]) {
         if (other !== panel) $(other).open = false;
       }
