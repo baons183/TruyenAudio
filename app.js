@@ -31,7 +31,15 @@
     textColor: "#35372f",
     backgroundColor: "#fffefa",
     brightness: null,
+    theme: "light",
   };
+  // Mỗi giao diện có bộ màu trang sách riêng; đổi giao diện thì màu chữ/nền đổi theo.
+  const readerThemes = {
+    light: { label: "Sáng", textColor: "#35372f", backgroundColor: "#fffefa" },
+    sepia: { label: "Ngà", textColor: "#4a3d2c", backgroundColor: "#f6eedc" },
+    dark: { label: "Tối", textColor: "#d9d6ca", backgroundColor: "#1e211c" },
+  };
+  const readerThemeOrder = ["light", "sepia", "dark"];
   const readerFontFamilies = {
     georgia: "Georgia, 'Times New Roman', serif",
     arial: "Arial, Helvetica, sans-serif",
@@ -223,6 +231,16 @@
     nativeSpeech.setBrightness({ value: value === null ? -1 : value }).catch((error) => {
       console.warn("Không thể chỉnh độ sáng:", error);
     });
+  }
+
+  function applyTheme() {
+    const theme = readerPreferences.theme;
+    document.body.classList.toggle("theme-sepia", theme === "sepia");
+    document.body.classList.toggle("theme-dark", theme === "dark");
+    const next = readerThemes[readerThemeOrder[(readerThemeOrder.indexOf(theme) + 1) % readerThemeOrder.length]];
+    const button = $("#theme-toggle");
+    button.title = `Giao diện: ${readerThemes[theme].label} (bấm để chuyển sang ${next.label})`;
+    button.setAttribute("aria-label", button.title);
   }
 
   function updateReaderPreference(key, value) {
@@ -1521,6 +1539,7 @@
   $("#reader-background-color").addEventListener("change", persistReaderPreferences);
   $("#reader-settings-reset").addEventListener("click", () => {
     readerPreferences = { ...defaultReaderPreferences };
+    applyTheme();
     syncReaderSettingsControls();
     applyReaderPreferences();
     applyReaderMargin();
@@ -1545,9 +1564,18 @@
   $("#reader-column").addEventListener("scroll", hideReaderChrome, { capture: true, passive: true });
   document.addEventListener("fullscreenchange", resizeRenditionToViewer);
   $("#theme-toggle").addEventListener("click", () => {
-    document.body.classList.toggle("theme-sepia");
-    if (!document.body.classList.contains("theme-sepia")) document.body.classList.toggle("theme-dark");
-    else document.body.classList.remove("theme-dark");
+    const current = readerThemeOrder.indexOf(readerPreferences.theme);
+    const theme = readerThemeOrder[(current + 1) % readerThemeOrder.length];
+    readerPreferences = {
+      ...readerPreferences,
+      theme,
+      textColor: readerThemes[theme].textColor,
+      backgroundColor: readerThemes[theme].backgroundColor,
+    };
+    applyTheme();
+    syncReaderSettingsControls();
+    applyReaderPreferences();
+    persistReaderPreferences();
   });
   $("#show-sidebar").addEventListener("click", () => $("#sidebar").classList.add("is-open"));
   $("#sidebar-toggle").addEventListener("click", () => $("#sidebar").classList.remove("is-open"));
@@ -1631,6 +1659,7 @@
     synth.addEventListener("voiceschanged", loadVoices);
   }
   audioPlayer.volume = Number($("#volume-range").value);
+  applyTheme();
   updateReadingModeControl();
   syncReaderSettingsControls();
   getReaderPreferences().then((preferences) => {
@@ -1655,6 +1684,7 @@
       brightness: brightnessValue !== null && brightnessValue >= 0.05 && brightnessValue <= 1
         ? brightnessValue
         : null,
+      theme: Object.hasOwn(readerThemes, preferences.theme) ? preferences.theme : defaultReaderPreferences.theme,
       textColor: /^#[0-9a-f]{6}$/i.test(preferences.textColor)
         ? preferences.textColor
         : defaultReaderPreferences.textColor,
@@ -1662,6 +1692,7 @@
         ? preferences.backgroundColor
         : defaultReaderPreferences.backgroundColor,
     };
+    applyTheme();
     syncReaderSettingsControls();
     applyReaderPreferences();
     applyBrightness();
