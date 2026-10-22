@@ -225,7 +225,7 @@ ${author ? `<dc:creator>${escapeXml(author)}</dc:creator>` : ""}
 
   // Tiêu đề chương truyện Trung: 第…章/回/节/卷/集/话/部/篇/幕 (số Ả Rập, toàn khổ, chữ Hán, chữ số viết hoa),
   // có thể kèm tiền tố 正文/VIP/tên quyển hoặc nằm trong ngoặc 【】; cùng các chương đặc biệt (楔子, 番外...).
-  const CN_NUMBER = "0-9０-９零〇一二三四五六七八九十百千万两壹贰貳叁參肆伍陆陸柒捌玖拾佰仟";
+  const CN_NUMBER = "0-9０-９零〇○一二三四五六七八九十百千万两壹贰貳叁參肆伍陆陸柒捌玖拾佰仟";
   const CN_HEADING = new RegExp(
     String.raw`^[【\[（(〔「《]?\s*`
       + String.raw`(?:(?:正文|VIP章节|VIP|vip)\s*[:：]?\s*|第\s*[${CN_NUMBER}]+\s*[卷部]\s*[^第\s]{0,20}\s+)?`
@@ -256,7 +256,28 @@ ${author ? `<dc:creator>${escapeXml(author)}</dc:creator>` : ""}
         }
       }
       if (current.parts.length) chapters.push(current);
-      return chapters.map((chapter) => ({ title: chapter.title, body: chapter.parts.join("\n") }));
+      // Chương dài bất thường (thường do file thiếu tiêu đề) được chia nhỏ để dịch và nghe ổn định.
+      const result = [];
+      for (const chapter of chapters) {
+        const pieces = [];
+        let piece = [];
+        let size = 0;
+        for (const part of chapter.parts) {
+          if (piece.length && size + part.length > 40000) {
+            pieces.push(piece);
+            piece = [];
+            size = 0;
+          }
+          piece.push(part);
+          size += part.length;
+        }
+        if (piece.length) pieces.push(piece);
+        pieces.forEach((parts, index) => result.push({
+          title: pieces.length > 1 ? `${chapter.title} (${index + 1})` : chapter.title,
+          body: parts.join("\n"),
+        }));
+      }
+      return result;
     }
 
     // Không có tiêu đề chương: chia theo độ dài, cắt ở ranh giới đoạn.

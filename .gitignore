@@ -4,3 +4,4 @@ node_modules/
 /ios/
 /android/
 package-lock.json
+/sample-books/
