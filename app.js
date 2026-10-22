@@ -123,6 +123,36 @@
     return requestResult(transaction.objectStore("books").get(id));
   }
 
+  async function deleteStoredBook(id) {
+    const database = await openStorage();
+    const transaction = database.transaction("books", "readwrite");
+    const complete = transactionComplete(transaction);
+    transaction.objectStore("books").delete(id);
+    await complete;
+  }
+
+  async function removeBookFromLibrary(record) {
+    const titleText = record.title || stripBookExtension(record.name);
+    try {
+      if (record.id === currentBookId) {
+        // Sách đang mở: đóng lại để không còn lưu vị trí cho sách đã xóa.
+        stopSpeech();
+        window.clearTimeout(savePositionTimer);
+        if (rendition) rendition.destroy();
+        if (book) book.destroy();
+        book = null;
+        rendition = null;
+        currentBookId = null;
+      }
+      await deleteStoredBook(record.id);
+      await renderLibrary();
+      setLibraryStatus(`Đã xóa “${titleText}” khỏi thư viện.`);
+    } catch (error) {
+      console.error("Không thể xóa sách:", error);
+      setLibraryStatus("Không thể xóa sách khỏi thiết bị.", true);
+    }
+  }
+
   async function getStoredBooks() {
     const database = await openStorage();
     const transaction = database.transaction("books", "readonly");
@@ -301,6 +331,7 @@
       const openSavedBook = () => openBook(null, record);
       card.addEventListener("click", openSavedBook);
       card.addEventListener("keydown", (event) => {
+        if (event.target !== card) return;
         if (event.key !== "Enter" && event.key !== " ") return;
         event.preventDefault();
         openSavedBook();
@@ -327,7 +358,44 @@
       saved.className = "library-book-saved";
       saved.textContent = record.cfi ? "Đã lưu vị trí đọc" : "Sẵn sàng để đọc";
       copy.append(title, details, saved);
-      card.append(cover, copy);
+
+      // Xóa sách: nút thùng rác, rồi xác nhận ngay trên thẻ sách.
+      const deleteButton = document.createElement("button");
+      deleteButton.type = "button";
+      deleteButton.className = "library-book-delete";
+      deleteButton.setAttribute("aria-label", `Xóa sách ${titleText} khỏi thư viện`);
+      deleteButton.title = "Xóa khỏi thư viện";
+      deleteButton.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M10 11v6m4-6v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3"/></svg>';
+      const confirmBox = document.createElement("div");
+      confirmBox.className = "library-book-confirm";
+      confirmBox.hidden = true;
+      const confirmText = document.createElement("p");
+      confirmText.textContent = "Xóa sách này khỏi thư viện?";
+      const confirmDelete = document.createElement("button");
+      confirmDelete.type = "button";
+      confirmDelete.className = "library-confirm-delete";
+      confirmDelete.textContent = "Xóa";
+      const confirmCancel = document.createElement("button");
+      confirmCancel.type = "button";
+      confirmCancel.className = "library-confirm-cancel";
+      confirmCancel.textContent = "Hủy";
+      confirmBox.append(confirmText, confirmDelete, confirmCancel);
+      confirmBox.addEventListener("click", (event) => event.stopPropagation());
+      deleteButton.addEventListener("click", (event) => {
+        event.stopPropagation();
+        confirmBox.hidden = false;
+        confirmCancel.focus();
+      });
+      confirmCancel.addEventListener("click", () => {
+        confirmBox.hidden = true;
+        deleteButton.focus();
+      });
+      confirmDelete.addEventListener("click", () => {
+        confirmDelete.disabled = true;
+        removeBookFromLibrary(record);
+      });
+
+      card.append(cover, copy, deleteButton, confirmBox);
       bookList.append(card);
     });
     setLibraryStatus("");

@@ -76,6 +76,17 @@ button { color: inherit; }
 .library-book { min-width: 0; display: grid; grid-template-columns: 82px minmax(0, 1fr); align-items: center; gap: 13px; padding: 10px; background: var(--surface); border: 1px solid #e8e5da; border-radius: 12px; box-shadow: 0 5px 16px #24271f08; cursor: pointer; transition: transform .2s, box-shadow .2s, border-color .2s; }
 .library-book:hover { transform: translateY(-2px); border-color: #c9d0bf; box-shadow: 0 10px 22px #24271f12; }
 .library-book:focus-visible { outline: 3px solid #91a285; outline-offset: 2px; }
+.library-book { position: relative; }
+.library-book .library-book-copy { padding-right: 26px; }
+.library-book-delete { position: absolute; top: 6px; right: 6px; width: 32px; height: 32px; display: grid; place-items: center; padding: 0; color: #9a9a8f; background: transparent; border: 0; border-radius: 8px; cursor: pointer; }
+.library-book-delete:hover, .library-book-delete:focus-visible { color: #a65349; background: #f5e6e2; }
+.library-book-delete svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.library-book-confirm { position: absolute; inset: 0; z-index: 2; display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 8px; padding: 10px; background: var(--surface); border-radius: 12px; cursor: default; }
+.library-book-confirm[hidden] { display: none; }
+.library-book-confirm p { width: 100%; margin: 0; color: var(--ink); font-size: 12px; font-weight: 600; text-align: center; }
+.library-book-confirm button { min-width: 72px; padding: 8px 12px; border: 0; border-radius: 8px; cursor: pointer; font-size: 12px; font-weight: 600; }
+.library-confirm-delete { color: #fff; background: #a65349; }
+.library-confirm-cancel { color: var(--ink); background: var(--line); }
 .library-book-cover { position: relative; height: 108px; display: flex; flex-direction: column; justify-content: center; overflow: hidden; padding: 11px; color: #fff8e8; border-radius: 6px; box-shadow: inset 4px 0 #ffffff1b; }
 .library-book-cover::before { position: absolute; inset: 6px; content: ""; border: 1px solid #ffffff45; border-radius: 4px; }
 .library-book-cover.palette-0 { background: linear-gradient(145deg, #75846a, #394d3b); }
