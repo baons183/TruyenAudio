@@ -749,7 +749,11 @@
           setSpeechStatus("Không phát được giọng trực tuyến. Hãy kiểm tra kết nối mạng rồi thử lại.");
         }
       };
-      audioPlayer.play().catch((error) => {
+      audioPlayer.play().then(() => {
+        // Mỗi đoạn audio mới có thể làm iOS xóa thông tin và nút trên màn hình khóa.
+        registerMediaSessionHandlers();
+        updateMediaSession(true);
+      }).catch((error) => {
         stopSpeech();
         if (error.name === "NotAllowedError") {
           setSpeechStatus("Trình duyệt chặn phát tự động. Hãy nhấn Nghe chương này để cấp quyền phát.");
@@ -1316,7 +1320,9 @@
     openBook(event.dataTransfer?.files?.[0]);
   });
 
-  if ("mediaSession" in navigator) {
+  // iOS chỉ hiện nút chương trước/sau trên màn hình khóa khi các thao tác tua bị tắt (null).
+  function registerMediaSessionHandlers() {
+    if (!("mediaSession" in navigator)) return;
     const mediaActions = {
       play: () => {
         if (isPaused) startSpeech();
@@ -1327,6 +1333,9 @@
       stop: stopSpeech,
       previoustrack: () => goToAdjacentChapter(-1),
       nexttrack: () => goToAdjacentChapter(1),
+      seekbackward: null,
+      seekforward: null,
+      seekto: null,
     };
     for (const [action, handler] of Object.entries(mediaActions)) {
       try {
@@ -1336,6 +1345,7 @@
       }
     }
   }
+  registerMediaSessionHandlers();
 
   loadVoices();
   getSetting("extraVoiceLanguages").then((saved) => {
