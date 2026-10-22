@@ -15,7 +15,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:wght@500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=20261022-46">
+    <link rel="stylesheet" href="styles.css?v=20261022-47">
   </head>
   <body>
     <header class="topbar">
@@ -129,6 +129,45 @@
             <button class="icon-button" id="font-smaller" type="button" aria-label="Giảm cỡ chữ" title="Giảm cỡ chữ">A<sup>−</sup></button>
             <button class="icon-button" id="font-larger" type="button" aria-label="Tăng cỡ chữ" title="Tăng cỡ chữ">A<sup>+</sup></button>
             <span class="toolbar-divider"></span>
+            <details class="reader-settings translate-settings" id="translate-settings">
+              <summary class="icon-button reader-settings-toggle" aria-label="Dịch truyện" title="Dịch truyện">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h9M8.5 3v2m3 0c-.8 3.6-3.4 6.6-7 8.5m2.5-5c1 2 2.6 3.6 4.5 4.6M12.5 21l4-9 4 9m-6.8-3h5.6"/></svg>
+              </summary>
+              <div class="reader-settings-panel translate-panel" aria-label="Dịch truyện bằng Gemini">
+                <p class="reader-settings-title">Dịch truyện (Gemini)</p>
+                <div class="translate-mode" role="group" aria-label="Hiển thị">
+                  <button type="button" data-mode="original" aria-pressed="true">Bản gốc</button>
+                  <button type="button" data-mode="translated" aria-pressed="false">Bản dịch</button>
+                  <button type="button" data-mode="bilingual" aria-pressed="false">Song ngữ</button>
+                </div>
+                <p class="translate-status" id="translate-status" role="status" aria-live="polite"></p>
+                <button class="reader-settings-reset" id="translate-chapter" type="button">Dịch chương này</button>
+                <label class="reader-setting-check translate-auto"><input id="translate-auto" type="checkbox" checked> Tự dịch khi mở chương và dịch trước chương sau</label>
+                <details class="translate-sub" id="translate-glossary-box">
+                  <summary>Bảng tên riêng <span id="translate-glossary-count"></span></summary>
+                  <p class="translate-hint">Mỗi dòng: nguyên văn = bản dịch | loại | giới tính | ghi chú. Gemini tự thêm tên mới sau mỗi chương; bạn sửa ở đây để chốt cách dịch.</p>
+                  <textarea id="translate-glossary" rows="8" spellcheck="false"></textarea>
+                  <button class="reader-settings-reset" id="translate-glossary-save" type="button">Lưu bảng tên</button>
+                </details>
+                <details class="translate-sub" id="translate-config">
+                  <summary>Cài đặt Gemini</summary>
+                  <label class="reader-setting">
+                    <span>Khóa API (chỉ lưu trên máy này)</span>
+                    <input id="translate-key" type="password" autocomplete="off" spellcheck="false" placeholder="AIza…">
+                  </label>
+                  <button class="reader-settings-reset" id="translate-check" type="button">Kiểm tra khóa và tải danh sách model</button>
+                  <label class="reader-setting">
+                    <span>Model</span>
+                    <select id="translate-model"><option value="">Chưa có — hãy kiểm tra khóa</option></select>
+                  </label>
+                  <label class="reader-setting">
+                    <span>Prompt biên tập</span>
+                    <textarea id="translate-prompt" rows="10" spellcheck="false"></textarea>
+                  </label>
+                  <button class="reader-settings-reset" id="translate-prompt-reset" type="button">Khôi phục prompt mặc định</button>
+                </details>
+              </div>
+            </details>
             <details class="reader-settings" id="reader-settings">
               <summary class="icon-button reader-settings-toggle" aria-label="Tùy chỉnh hiển thị" title="Tùy chỉnh hiển thị">
                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v2m0 14v2M3 12h2m14 0h2m-2.64-6.36-1.42 1.42M7.06 16.94l-1.42 1.42m12.72 0-1.42-1.42M7.06 7.06 5.64 5.64"/><circle cx="12" cy="12" r="4"/></svg>
@@ -306,7 +345,8 @@
 
     <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/epubjs@0.3.93/dist/epub.min.js"></script>
-    <script src="converters.js?v=20261022-46"></script>
-    <script src="app.js?v=20261022-46"></script>
+    <script src="converters.js?v=20261022-47"></script>
+    <script src="translator.js?v=20261022-47"></script>
+    <script src="app.js?v=20261022-47"></script>
   </body>
 </html>

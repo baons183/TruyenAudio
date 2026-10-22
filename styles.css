@@ -161,6 +161,17 @@ button { color: inherit; }
 .reader-settings[open] .reader-settings-toggle { color: var(--green-dark); background: var(--green-soft); }
 .reader-settings-panel { position: absolute; z-index: 8; top: calc(100% + 10px); right: -42px; width: 250px; max-height: min(75vh, 620px); overflow-y: auto; overscroll-behavior: contain; padding: 16px; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 12px 30px #24271f1c; }
 .reader-setting[hidden] { display: none; }
+.translate-mode { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; padding: 3px; background: var(--green-soft); border-radius: 8px; }
+.translate-mode button { padding: 7px 4px; color: var(--muted); background: transparent; border: 0; border-radius: 6px; cursor: pointer; font-size: 10px; font-weight: 600; }
+.translate-mode button[aria-pressed="true"] { color: var(--ink); background: var(--surface); box-shadow: 0 1px 4px #24271f1a; }
+.translate-status { min-height: 14px; margin: 10px 0 0; color: var(--muted); font-size: 10px; line-height: 1.5; }
+.translate-status.is-error { color: #a65349; }
+.translate-auto { margin-top: 10px; }
+.translate-sub { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--line); }
+.translate-sub summary { color: var(--ink); font-size: 11px; font-weight: 700; cursor: pointer; }
+.translate-hint { margin: 8px 0 6px; color: var(--muted); font-size: 9px; line-height: 1.5; }
+.translate-panel textarea, .translate-panel input[type="password"] { width: 100%; padding: 7px 8px; color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: 6px; font: 11px/1.5 var(--sans, system-ui), sans-serif; resize: vertical; }
+.translate-panel input[type="password"] { height: 34px; }
 .reader-setting-check { display: flex; align-items: center; gap: 7px; color: var(--muted); font-size: 10px; cursor: pointer; }
 .reader-setting-check input { accent-color: var(--green); }
 .reader-setting input[type="range"]:disabled { opacity: .45; }
@@ -401,6 +412,7 @@ body.theme-dark .welcome-card h2 em { color: #aebc9e; }
   .range-labels { margin-top: 2px; }
   .audio-actions { grid-column: 1 / -1; grid-row: 4; margin-top: 13px; padding-top: 13px; border-top: 1px solid var(--line); }
   .audio-note { display: flex; grid-column: 1 / -1; grid-row: 5; margin-top: 13px; padding-top: 12px; }
+  #font-smaller, #font-larger { display: none; }
   .reader-settings-panel { position: fixed; top: calc(68px + 52px + 6px + env(safe-area-inset-top, 0px)); right: 10px; width: min(290px, calc(100vw - 20px)); max-height: calc(100dvh - 140px); }
   body.is-immersive, body.is-immersive .reader-column, body.is-immersive .reader-stage { background: var(--reader-bg, var(--surface)); }
 }

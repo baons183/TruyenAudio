@@ -8,6 +8,7 @@ on:
       - "index.html"
       - "app.js"
       - "converters.js"
+      - "translator.js"
       - "vendor/**"
       - "styles.css"
       - "package.json"
