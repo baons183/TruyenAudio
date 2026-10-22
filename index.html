@@ -15,7 +15,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:wght@500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=20261022-50">
+    <link rel="stylesheet" href="styles.css?v=20261022-51">
   </head>
   <body>
     <header class="topbar">
@@ -142,7 +142,26 @@
                 </div>
                 <p class="translate-status" id="translate-status" role="status" aria-live="polite"></p>
                 <button class="reader-settings-reset" id="translate-chapter" type="button">Dịch chương này</button>
-                <label class="reader-setting-check translate-auto"><input id="translate-auto" type="checkbox" checked> Tự dịch khi mở chương và dịch trước chương sau</label>
+                <label class="reader-setting-check translate-auto"><input id="translate-auto" type="checkbox" checked> Tự dịch chương đang mở và dịch nền các chương sau</label>
+                <div class="translate-queue">
+                  <p class="translate-status" id="translate-queue-status" role="status" aria-live="polite"></p>
+                  <button class="translate-queue-toggle" id="translate-queue-toggle" type="button" hidden>Dừng</button>
+                </div>
+                <details class="translate-sub" id="translate-picker-box">
+                  <summary>Chọn chương để dịch</summary>
+                  <div class="translate-range">
+                    <label>Từ <input id="translate-range-from" type="number" min="1" inputmode="numeric"></label>
+                    <label>đến <input id="translate-range-to" type="number" min="1" inputmode="numeric"></label>
+                    <button type="button" id="translate-range-select">Chọn khoảng</button>
+                  </div>
+                  <div class="translate-picker-actions">
+                    <button type="button" id="translate-select-all">Tất cả</button>
+                    <button type="button" id="translate-select-untranslated">Chưa dịch</button>
+                    <button type="button" id="translate-select-none">Bỏ chọn</button>
+                  </div>
+                  <div class="translate-chapter-list" id="translate-chapter-list"></div>
+                  <button class="reader-settings-reset" id="translate-selected" type="button">Dịch các chương đã chọn</button>
+                </details>
                 <details class="translate-sub" id="translate-glossary-box">
                   <summary>Bảng tên riêng <span id="translate-glossary-count"></span></summary>
                   <p class="translate-hint">Mỗi dòng: nguyên văn = bản dịch | loại | giới tính | ghi chú. Gemini tự thêm tên mới sau mỗi chương; bạn sửa ở đây để chốt cách dịch.</p>
@@ -345,8 +364,8 @@
 
     <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/epubjs@0.3.93/dist/epub.min.js"></script>
-    <script src="converters.js?v=20261022-50"></script>
-    <script src="translator.js?v=20261022-50"></script>
-    <script src="app.js?v=20261022-50"></script>
+    <script src="converters.js?v=20261022-51"></script>
+    <script src="translator.js?v=20261022-51"></script>
+    <script src="app.js?v=20261022-51"></script>
   </body>
 </html>

@@ -344,15 +344,44 @@ XI. ĐỊNH DẠNG KỸ THUẬT (bắt buộc, do ứng dụng đọc sách yêu
         body: body ? JSON.stringify(body) : undefined,
       });
     } catch {
-      throw new TranslatorError("Không kết nối được tới Gemini. Hãy kiểm tra mạng.");
+      const error = new TranslatorError("Không kết nối được tới Gemini. Hãy kiểm tra mạng.");
+      error.network = true;
+      throw error;
     }
     const data = await response.json().catch(() => ({}));
     if (!response.ok) {
       const message = data?.error?.message || `HTTP ${response.status}`;
-      if (response.status === 400 && /api key/i.test(message)) throw new TranslatorError("Khóa API Gemini không hợp lệ.");
-      if (response.status === 403) throw new TranslatorError("Khóa API không có quyền dùng Gemini API (kiểm tra lại khóa trong AI Studio).");
-      if (response.status === 404) throw new TranslatorError(`Không tìm thấy model "${model || ""}". Hãy tải lại danh sách model.`);
-      if (response.status === 429) throw new TranslatorError("Đã hết lượt miễn phí của Gemini (theo phút hoặc theo ngày). Hãy thử lại sau ít phút, hoặc đổi sang model khác.");
+      const fatal = (text) => {
+        const error = new TranslatorError(text);
+        error.fatal = true;
+        return error;
+      };
+      if (response.status === 400 && /api key/i.test(message)) throw fatal("Khóa API Gemini không hợp lệ.");
+      if (response.status === 403) throw fatal("Khóa API không có quyền dùng Gemini API (kiểm tra lại khóa trong AI Studio).");
+      if (response.status === 404) throw fatal(`Không tìm thấy model "${model || ""}". Hãy tải lại danh sách model.`);
+      if (response.status === 429) {
+        // Phân biệt hết lượt theo phút (chờ rồi thử lại) với hết lượt trong ngày (dừng hẳn).
+        const details = data?.error?.details || [];
+        const retryDelay = details.find((detail) => String(detail["@type"]).includes("RetryInfo"))?.retryDelay;
+        const quotaIds = details
+          .filter((detail) => String(detail["@type"]).includes("QuotaFailure"))
+          .flatMap((detail) => (detail.violations || []).map((violation) => `${violation.quotaId || ""} ${violation.quotaMetric || ""}`))
+          .join(" ");
+        const daily = /per ?day|daily/i.test(`${quotaIds} ${message}`);
+        const error = new TranslatorError(daily
+          ? "Đã hết lượt miễn phí trong ngày của Gemini. Hãy thử lại vào ngày mai, hoặc đổi sang model khác."
+          : "Gemini đang giới hạn số lượt mỗi phút.");
+        error.rateLimited = true;
+        error.daily = daily;
+        error.retryAfter = retryDelay ? Math.ceil(parseFloat(retryDelay)) : null;
+        throw error;
+      }
+      if (response.status >= 500) {
+        const error = new TranslatorError(`Máy chủ Gemini đang lỗi (${response.status}). Sẽ thử lại sau.`);
+        error.rateLimited = true;
+        error.retryAfter = 30;
+        throw error;
+      }
       throw new TranslatorError(`Gemini báo lỗi: ${message}`);
     }
     return data;

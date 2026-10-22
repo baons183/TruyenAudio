@@ -167,6 +167,20 @@ button { color: inherit; }
 .translate-status { min-height: 14px; margin: 10px 0 0; color: var(--muted); font-size: 10px; line-height: 1.5; }
 .translate-status.is-error { color: #a65349; }
 .translate-auto { margin-top: 10px; }
+.translate-queue { display: flex; align-items: center; gap: 8px; }
+.translate-queue .translate-status { flex: 1; }
+.translate-queue-toggle { flex: 0 0 auto; margin-top: 10px; padding: 5px 10px; color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: 6px; cursor: pointer; font-size: 10px; font-weight: 600; }
+.translate-range { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 8px; color: var(--muted); font-size: 10px; }
+.translate-range input { width: 58px; height: 28px; margin-left: 3px; padding: 0 6px; color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: 6px; }
+.translate-range button, .translate-picker-actions button { padding: 6px 9px; color: var(--green-dark); background: var(--green-soft); border: 0; border-radius: 6px; cursor: pointer; font-size: 10px; font-weight: 600; }
+.translate-picker-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.translate-chapter-list { max-height: 230px; margin-top: 8px; overflow-y: auto; overscroll-behavior: contain; border: 1px solid var(--line); border-radius: 6px; }
+.translate-chapter-list label { display: flex; align-items: center; gap: 7px; padding: 7px 8px; color: var(--ink); border-bottom: 1px solid var(--line); font-size: 10px; cursor: pointer; }
+.translate-chapter-list label:last-child { border-bottom: 0; }
+.translate-chapter-list label span { min-width: 0; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.translate-chapter-list small { flex: 0 0 auto; color: var(--muted); font-size: 9px; }
+.translate-chapter-list small.is-done { color: var(--green-dark); font-weight: 600; }
+.toc-list button.is-translated::after { content: " ✓"; color: var(--green); font-weight: 700; }
 .translate-sub { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--line); }
 .translate-sub summary { color: var(--ink); font-size: 11px; font-weight: 700; cursor: pointer; }
 .translate-hint { margin: 8px 0 6px; color: var(--muted); font-size: 9px; line-height: 1.5; }

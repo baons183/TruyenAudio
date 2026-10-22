@@ -131,6 +131,7 @@
     // Bản dịch và bảng tên của sách này.
     transaction.objectStore("settings").delete(IDBKeyRange.bound(`tr:${id}:`, `tr:${id}:\uffff`));
     transaction.objectStore("settings").delete(`glossary:${id}`);
+    transaction.objectStore("settings").delete(`trqueue:${id}`);
     await complete;
   }
 
@@ -823,6 +824,7 @@
       button.textContent = item.label || "Chương";
       button.title = item.label || "Chương";
       button.dataset.href = item.href;
+      if (section?.index !== undefined) button.dataset.spine = String(section.index);
       button.dataset.label = item.label || "Chương";
       button.style.paddingLeft = `${10 + Math.min(depth, 3) * 12}px`;
       button.addEventListener("click", () => {
@@ -991,6 +993,8 @@
       const record = { aligned: result.aligned, paragraphs: result.paragraphs, model: translationSettings.model, at: Date.now() };
       translationCache.set(index, record);
       await saveSetting(translationKey(index), record);
+      translatedIndexes.add(index);
+      markTranslatedChapters();
       mergeGlossary(result.glossary);
       return record;
     })();
@@ -1002,13 +1006,223 @@
     return job;
   }
 
-  function prefetchTranslation(index) {
-    if (!isTranslationOn() || !translationSettings.autoTranslate || !hasGeminiSetup() || !book) return;
-    const section = book.spine.get(index);
-    if (!section?.linear || section.linear === "no") return;
-    getTranslation(index).then((cached) => {
-      if (!cached) translateSection(section).catch((error) => console.warn("Dịch trước chương sau thất bại:", error));
-    });
+  // ---------- Hàng đợi dịch nền ----------
+  // Dịch lần lượt từng chương (một chương một lúc), tự chờ khi Gemini giới hạn lượt theo phút,
+  // dừng khi hết lượt trong ngày/khóa lỗi/mất mạng, bỏ qua chương bị lỗi riêng.
+  const translatedIndexes = new Set();
+  const newTranslationQueue = () => ({
+    items: [], mode: "auto", anchor: null, running: false, stopped: false, error: "",
+    currentIndex: null, waitingUntil: 0, done: 0, total: 0, failed: [],
+  });
+  let translationQueue = newTranslationQueue();
+
+  function chapterIndexes() {
+    return (book?.spine.spineItems || []).filter((section) => section.linear !== "no").map((section) => section.index);
+  }
+
+  function chapterLabel(index) {
+    return tocLabelsBySpineIndex.get(index) || `Phần ${chapterIndexes().indexOf(index) + 1}`;
+  }
+
+  function markTranslatedChapters() {
+    for (const button of tocList.querySelectorAll("button[data-spine]")) {
+      button.classList.toggle("is-translated", translatedIndexes.has(Number(button.dataset.spine)));
+    }
+    if ($("#translate-picker-box").open) updateChapterPickerStatus();
+  }
+
+  async function loadTranslatedIndexes() {
+    translatedIndexes.clear();
+    if (!currentBookId) return;
+    try {
+      const database = await openStorage();
+      const transaction = database.transaction("settings", "readonly");
+      const keys = await requestResult(transaction.objectStore("settings")
+        .getAllKeys(IDBKeyRange.bound(`tr:${currentBookId}:`, `tr:${currentBookId}:\uffff`)));
+      for (const key of keys) translatedIndexes.add(Number(String(key).split(":").pop()));
+    } catch (error) {
+      console.error("Không thể đọc danh sách chương đã dịch:", error);
+    }
+    markTranslatedChapters();
+  }
+
+  function persistTranslationQueue() {
+    if (!currentBookId) return;
+    const { items, mode } = translationQueue;
+    saveSetting(`trqueue:${currentBookId}`, { items, mode }).catch(() => {});
+  }
+
+  function renderTranslationQueueStatus() {
+    const queue = translationQueue;
+    const status = $("#translate-queue-status");
+    const toggle = $("#translate-queue-toggle");
+    const remaining = queue.items.length;
+    if ($("#translate-picker-box").open) updateChapterPickerStatus();
+    if (!book || (!remaining && !queue.running)) {
+      toggle.hidden = true;
+      const failed = queue.failed.length ? ` Bỏ qua ${queue.failed.length} chương lỗi.` : "";
+      status.textContent = queue.total ? `Dịch nền: đã xong ${queue.done}/${queue.total} chương.${failed}` : "";
+      return;
+    }
+    toggle.hidden = false;
+    if (queue.stopped) {
+      toggle.textContent = "Tiếp tục";
+      status.textContent = `Dịch nền đã dừng · còn ${remaining} chương.${queue.error ? ` ${queue.error}` : ""}`;
+      return;
+    }
+    toggle.textContent = "Dừng";
+    const waiting = queue.waitingUntil > Date.now()
+      ? ` · chờ Gemini ${Math.ceil((queue.waitingUntil - Date.now()) / 1000)} giây`
+      : "";
+    const current = queue.currentIndex !== null ? ` · đang dịch “${chapterLabel(queue.currentIndex)}”` : "";
+    status.textContent = `Dịch nền: ${queue.done}/${queue.total} chương${current}${waiting}`;
+  }
+
+  function removeQueued(queue, index) {
+    const position = queue.items.indexOf(index);
+    if (position >= 0) queue.items.splice(position, 1);
+  }
+
+  async function waitForTranslationQueue(queue, seconds) {
+    queue.waitingUntil = Date.now() + seconds * 1000;
+    while (Date.now() < queue.waitingUntil && !queue.stopped && queue === translationQueue) {
+      renderTranslationQueueStatus();
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+    }
+    queue.waitingUntil = 0;
+  }
+
+  async function runTranslationQueue() {
+    const queue = translationQueue;
+    if (queue.running) return;
+    queue.running = true;
+    renderTranslationQueueStatus();
+    try {
+      while (queue === translationQueue && queue.items.length && !queue.stopped && hasGeminiSetup()) {
+        const index = queue.items[0];
+        const section = book?.spine.get(index);
+        if (!section || translatedIndexes.has(index)) {
+          removeQueued(queue, index);
+          queue.done += 1;
+          continue;
+        }
+        queue.currentIndex = index;
+        renderTranslationQueueStatus();
+        try {
+          const record = await translateSection(section);
+          if (queue !== translationQueue) break;
+          removeQueued(queue, index);
+          queue.done += 1;
+          persistTranslationQueue();
+          applyTranslationToVisible(index, record, false);
+        } catch (error) {
+          if (queue !== translationQueue) break;
+          if (error.rateLimited && !error.daily) {
+            queue.currentIndex = null;
+            await waitForTranslationQueue(queue, Math.max(5, error.retryAfter || 60));
+            continue;
+          }
+          if (error.rateLimited || error.fatal || error.network) {
+            queue.stopped = true;
+            queue.error = error.message;
+            translationError(error);
+            break;
+          }
+          // Lỗi riêng của chương này (bị chặn, sai định dạng...): bỏ qua, dịch chương sau.
+          console.warn(`Bỏ qua chương ${index} khi dịch nền:`, error);
+          queue.failed.push(index);
+          removeQueued(queue, index);
+          persistTranslationQueue();
+        }
+      }
+    } finally {
+      queue.running = false;
+      queue.currentIndex = null;
+      if (queue === translationQueue) renderTranslationQueueStatus();
+    }
+  }
+
+  function startTranslationQueue(indexes, mode) {
+    const queue = translationQueue;
+    queue.items = indexes.filter((index) => !translatedIndexes.has(index));
+    queue.mode = mode;
+    queue.stopped = false;
+    queue.error = "";
+    queue.failed = [];
+    queue.done = 0;
+    queue.total = queue.items.length;
+    persistTranslationQueue();
+    renderTranslationQueueStatus();
+    runTranslationQueue();
+  }
+
+  /** Tự dịch nền các chương sau chương đang đọc (khi bật dịch và "Tự dịch"). */
+  function autoQueueFrom(index) {
+    const queue = translationQueue;
+    if (!book || !isTranslationOn() || !translationSettings.autoTranslate || !hasGeminiSetup()) return;
+    if (queue.stopped) return;
+    if (queue.mode === "manual" && queue.items.length) return;
+    if (queue.mode === "auto" && queue.anchor === index) return;
+    queue.anchor = index;
+    startTranslationQueue(chapterIndexes().filter((item) => item > index), "auto");
+  }
+
+  async function restoreTranslationQueue() {
+    translationQueue = newTranslationQueue();
+    renderTranslationQueueStatus();
+    await loadTranslatedIndexes();
+    try {
+      const saved = currentBookId ? await getSetting(`trqueue:${currentBookId}`) : null;
+      const items = (saved?.items || []).filter((index) => !translatedIndexes.has(index));
+      if (!items.length) return;
+      translationQueue.items = items;
+      translationQueue.mode = saved.mode === "manual" ? "manual" : "auto";
+      translationQueue.total = items.length;
+      if (hasGeminiSetup() && (translationQueue.mode === "manual" || (isTranslationOn() && translationSettings.autoTranslate))) {
+        runTranslationQueue();
+      } else {
+        translationQueue.stopped = true;
+        renderTranslationQueueStatus();
+      }
+    } catch (error) {
+      console.error("Không thể khôi phục hàng đợi dịch:", error);
+    }
+  }
+
+  function renderChapterPicker() {
+    const list = $("#translate-chapter-list");
+    const indexes = chapterIndexes();
+    list.replaceChildren(...indexes.map((index, position) => {
+      const row = document.createElement("label");
+      const checkbox = document.createElement("input");
+      checkbox.type = "checkbox";
+      checkbox.value = String(index);
+      const name = document.createElement("span");
+      name.textContent = `${position + 1}. ${chapterLabel(index)}`;
+      const state = document.createElement("small");
+      state.dataset.spine = String(index);
+      row.append(checkbox, name, state);
+      return row;
+    }));
+    $("#translate-range-from").max = String(indexes.length);
+    $("#translate-range-to").max = String(indexes.length);
+    updateChapterPickerStatus();
+  }
+
+  function updateChapterPickerStatus() {
+    const queued = new Set(translationQueue.items);
+    for (const state of document.querySelectorAll("#translate-chapter-list small")) {
+      const index = Number(state.dataset.spine);
+      const done = translatedIndexes.has(index);
+      state.classList.toggle("is-done", done);
+      state.textContent = done ? "✓ đã dịch"
+        : translationQueue.currentIndex === index ? "đang dịch…"
+          : queued.has(index) ? "chờ dịch" : "";
+    }
+  }
+
+  function pickerCheckboxes() {
+    return [...document.querySelectorAll("#translate-chapter-list input[type=checkbox]")];
   }
 
   function translationError(error) {
@@ -1059,12 +1273,12 @@
     doc.body.dataset.translated = mode;
   }
 
-  function applyTranslationToVisible(index, record) {
+  function applyTranslationToVisible(index, record, rerenderIfApplied = true) {
     if (!rendition || !record || !isTranslationOn()) return;
     for (const contents of rendition.getContents()) {
       if (contents.sectionIndex !== index) continue;
-      if (contents.document?.body?.dataset.translated) rerenderReader();
-      else applyTranslation(contents, record);
+      if (!contents.document?.body?.dataset.translated) applyTranslation(contents, record);
+      else if (rerenderIfApplied) rerenderReader();
     }
   }
 
@@ -1075,17 +1289,16 @@
     const record = await getTranslation(index);
     if (record) {
       applyTranslation(contents, record);
-      prefetchTranslation(index + 1);
+      autoQueueFrom(index);
       return;
     }
     if (!translationSettings.autoTranslate || !hasGeminiSetup()) return;
     const section = book?.spine.get(index);
     if (!section) return;
+    // Chương đang mở được dịch ngay (song song với hàng đợi nền), rồi dịch nền các chương sau.
+    autoQueueFrom(index);
     translateSection(section)
-      .then((result) => {
-        applyTranslationToVisible(index, result);
-        prefetchTranslation(index + 1);
-      })
+      .then((result) => applyTranslationToVisible(index, result))
       .catch(translationError);
   }
 
@@ -1096,8 +1309,8 @@
   /** Nội dung để đọc thành tiếng: bản dịch nếu đang bật dịch, ngược lại là bản gốc. */
   async function chapterTextForSpeech(section) {
     if (!isTranslationOn()) return loadSectionText(section);
+    autoQueueFrom(section.index);
     const record = (await getTranslation(section.index)) || (await translateSection(section));
-    prefetchTranslation(section.index + 1);
     return (record?.paragraphs || []).filter(Boolean).join("\n");
   }
 
@@ -1598,6 +1811,8 @@
     currentBookId = savedRecord?.id || `${file.name}:${file.size}:${file.lastModified}`;
     translationCache.clear();
     translationJobs.clear();
+    translationQueue = newTranslationQueue();
+    translatedIndexes.clear();
     loadBookGlossary();
     currentSpineIndex = null;
     tocLabelsBySpineIndex.clear();
@@ -1664,6 +1879,7 @@
 
       const navigation = book.navigation?.toc || [];
       populateToc(navigation);
+      restoreTranslationQueue();
       const chapterButtons = tocList.querySelectorAll("button");
       $("#chapter-count").textContent = chapterButtons.length ? `${chapterButtons.length} chương` : "";
       const chapterInput = $("#toc-jump-input");
@@ -2088,6 +2304,68 @@
   $("#translate-auto").addEventListener("change", (event) => {
     translationSettings = { ...translationSettings, autoTranslate: event.target.checked };
     saveTranslationSettings();
+    if (event.target.checked) {
+      translationQueue.anchor = null;
+      autoQueueFrom(currentReaderIndex());
+    } else if (translationQueue.mode === "auto") {
+      translationQueue.stopped = true;
+      translationQueue.items = [];
+      persistTranslationQueue();
+      renderTranslationQueueStatus();
+    }
+  });
+  $("#translate-queue-toggle").addEventListener("click", () => {
+    const queue = translationQueue;
+    if (queue.stopped) {
+      if (!hasGeminiSetup()) {
+        $("#translate-config").open = true;
+        setTranslateStatus("Hãy dán khóa API Gemini và chọn model trước.", true);
+        return;
+      }
+      queue.stopped = false;
+      queue.error = "";
+      runTranslationQueue();
+    } else {
+      queue.stopped = true;
+      queue.waitingUntil = 0;
+    }
+    renderTranslationQueueStatus();
+  });
+  $("#translate-picker-box").addEventListener("toggle", (event) => {
+    if (event.target.open) renderChapterPicker();
+  });
+  $("#translate-select-all").addEventListener("click", () => {
+    for (const box of pickerCheckboxes()) box.checked = true;
+  });
+  $("#translate-select-none").addEventListener("click", () => {
+    for (const box of pickerCheckboxes()) box.checked = false;
+  });
+  $("#translate-select-untranslated").addEventListener("click", () => {
+    for (const box of pickerCheckboxes()) box.checked = !translatedIndexes.has(Number(box.value));
+  });
+  $("#translate-range-select").addEventListener("click", () => {
+    const boxes = pickerCheckboxes();
+    const from = Math.max(1, Number($("#translate-range-from").value) || 1);
+    const to = Math.min(boxes.length, Number($("#translate-range-to").value) || boxes.length);
+    boxes.forEach((box, position) => {
+      box.checked = position + 1 >= from && position + 1 <= to;
+    });
+  });
+  $("#translate-selected").addEventListener("click", () => {
+    if (!hasGeminiSetup()) {
+      $("#translate-config").open = true;
+      setTranslateStatus("Hãy dán khóa API Gemini và chọn model trước.", true);
+      return;
+    }
+    const selected = pickerCheckboxes().filter((box) => box.checked).map((box) => Number(box.value));
+    const pending = selected.filter((index) => !translatedIndexes.has(index));
+    if (!pending.length) {
+      setTranslateStatus(selected.length ? "Các chương đã chọn đều đã được dịch." : "Hãy chọn ít nhất một chương.", !selected.length);
+      return;
+    }
+    startTranslationQueue(pending, "manual");
+    updateChapterPickerStatus();
+    setTranslateStatus(`Đã đưa ${pending.length} chương vào hàng đợi dịch nền.`);
   });
   $("#translate-key").addEventListener("change", (event) => {
     translationSettings = { ...translationSettings, apiKey: event.target.value.trim() };
