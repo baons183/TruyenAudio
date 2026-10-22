@@ -257,12 +257,7 @@
     document.body.classList.add("is-reading");
     document.body.classList.add("is-immersive");
     hideReaderChrome();
-    if (window.innerWidth <= 650) {
-      $("#app-shell").classList.add("audio-panel-hidden");
-      $("#hide-audio-panel").setAttribute("aria-expanded", "false");
-      $("#show-audio-panel").hidden = false;
-      $("#show-audio-panel").setAttribute("aria-expanded", "false");
-    }
+    if (isCompactReader()) setAudioPanelOpen(false);
     $("#home-screen").hidden = true;
     $("#app-shell").hidden = false;
     $("#home-button").hidden = false;
@@ -312,6 +307,22 @@
     $("#reader-column")?.classList.toggle("is-scrolling", isScrolling);
   }
 
+  function isCompactReader() {
+    return window.innerWidth <= 650;
+  }
+
+  // Trên điện thoại, bảng nghe sách là bottom sheet nổi trên trang nên nút mở luôn hiện để bật/tắt.
+  function setAudioPanelOpen(open) {
+    $("#app-shell").classList.toggle("audio-panel-hidden", !open);
+    $("#hide-audio-panel").setAttribute("aria-expanded", String(open));
+    const showButton = $("#show-audio-panel");
+    showButton.hidden = open && !isCompactReader();
+    showButton.setAttribute("aria-expanded", String(open));
+    showButton.title = open ? "Ẩn bảng nghe sách" : "Hiện bảng nghe sách";
+    showButton.setAttribute("aria-label", showButton.title);
+    if (!isCompactReader()) resizeRenditionToViewer();
+  }
+
   function hideReaderChrome() {
     window.clearTimeout(readerChromeTimer);
     document.body.classList.remove("reader-chrome-visible");
@@ -323,8 +334,6 @@
     document.body.classList.add("reader-chrome-visible");
     readerChromeTimer = window.setTimeout(hideReaderChrome, 4000);
   }
-
-  $("#reader-controls-reveal").addEventListener("click", showReaderChrome);
 
   function bindReaderGestures(contentDocument) {
     if (!contentDocument || readerGestureDocuments.has(contentDocument)) return;
@@ -362,13 +371,13 @@
     }, { capture: true });
     contentDocument.addEventListener("touchstart", (event) => {
       const touch = event.changedTouches[0];
-      if (touch) touchStart = { x: touch.clientX, y: touch.clientY };
+      if (touch) touchStart = { x: touch.clientX, y: touch.clientY, time: Date.now(), moved: false };
     }, { capture: true, passive: true });
     contentDocument.addEventListener("touchmove", (event) => {
       const touch = event.changedTouches[0];
-      if (!touch || !touchStart) return;
+      if (!touch || !touchStart || touchStart.moved) return;
       if (Math.hypot(touch.clientX - touchStart.x, touch.clientY - touchStart.y) > 12) {
-        touchStart = null;
+        touchStart.moved = true;
         hideReaderChrome();
       }
     }, { capture: true, passive: true });
@@ -376,9 +385,18 @@
       if (!touchStart) return;
       const touch = event.changedTouches[0];
       if (!touch) return;
-      const distance = Math.hypot(touch.clientX - touchStart.x, touch.clientY - touchStart.y);
+      const dx = touch.clientX - touchStart.x;
+      const dy = touch.clientY - touchStart.y;
+      const duration = Date.now() - touchStart.time;
       touchStart = null;
-      if (distance > 12) return;
+      // Vuốt ngang ở chế độ lật trang: trái sang trang sau, phải về trang trước.
+      if (readingMode === "paginated" && rendition && Math.abs(dx) > 40
+        && Math.abs(dx) > Math.abs(dy) * 1.5 && duration < 800) {
+        if (dx < 0) rendition.next();
+        else rendition.prev();
+        return;
+      }
+      if (Math.hypot(dx, dy) > 12) return;
       if (handleReaderLink(event, true)) return;
       showReaderChrome();
     }, { capture: true, passive: false });
@@ -1022,19 +1040,11 @@
     applyReaderPreferences();
     persistReaderPreferences();
   });
-  $("#hide-audio-panel").addEventListener("click", () => {
-    $("#app-shell").classList.add("audio-panel-hidden");
-    $("#hide-audio-panel").setAttribute("aria-expanded", "false");
-    $("#show-audio-panel").hidden = false;
-    $("#show-audio-panel").setAttribute("aria-expanded", "false");
-    resizeRenditionToViewer();
-  });
+  $("#hide-audio-panel").addEventListener("click", () => setAudioPanelOpen(false));
   $("#show-audio-panel").addEventListener("click", () => {
-    $("#app-shell").classList.remove("audio-panel-hidden");
-    $("#hide-audio-panel").setAttribute("aria-expanded", "true");
-    $("#show-audio-panel").hidden = true;
-    showReaderChrome();
-    resizeRenditionToViewer();
+    const isOpen = !$("#app-shell").classList.contains("audio-panel-hidden");
+    setAudioPanelOpen(!isOpen);
+    if (!isOpen) showReaderChrome();
   });
   $("#reading-mode-toggle").addEventListener("click", () => {
     if (!rendition) return;

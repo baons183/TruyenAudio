@@ -192,8 +192,6 @@ button { color: inherit; }
 .reader-error { position: absolute; z-index: 4; max-width: 440px; margin: 20px; padding: 15px 18px; color: #7f433e; background: #f7e9e5; border-radius: 8px; font-size: 12px; line-height: 1.6; }
 .fullscreen-hint { position: absolute; z-index: 5; right: 14px; bottom: 14px; left: 14px; margin: 0 auto; padding: 10px 14px; color: #fffefa; background: #24271fe8; border-radius: 8px; font-size: 11px; line-height: 1.5; text-align: center; }
 .fullscreen-hint[hidden] { display: none; }
-.reader-controls-reveal { position: fixed; z-index: 30; right: max(14px, env(safe-area-inset-right)); bottom: max(14px, env(safe-area-inset-bottom)); width: 42px; height: 42px; display: none; place-items: center; color: var(--green-dark); background: var(--surface); border: 1px solid var(--line); border-radius: 50%; box-shadow: 0 3px 14px #24271f30; cursor: pointer; -webkit-tap-highlight-color: transparent; }
-.reader-controls-reveal svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; }
 .page-controls { min-height: 63px; display: flex; align-items: center; gap: 17px; padding-top: 12px; border-top: 1px solid #e9e7df; }
 .page-button { width: 33px; height: 33px; flex: 0 0 auto; display: grid; place-items: center; color: #7e8076; background: transparent; border: 1px solid #e6e4db; border-radius: 50%; cursor: pointer; }
 .page-button:hover:not(:disabled) { color: var(--green-dark); background: #eeeee7; }
@@ -331,7 +329,10 @@ body.theme-dark .welcome-card h2 em { color: #aebc9e; }
   .app-shell { position: relative; height: auto; min-height: calc(100vh - 64px); display: flex; flex-direction: column; }
   body.is-immersive .app-shell { min-height: 100vh; min-height: 100dvh; }
   body.is-immersive.reader-chrome-visible .app-shell { min-height: calc(100vh - 68px); min-height: calc(100dvh - 68px); }
-  body.is-immersive .app-shell.audio-panel-hidden .audio-panel { display: none; }
+  body.is-immersive .audio-panel { position: fixed; z-index: 20; right: 0; bottom: 0; left: 0; max-height: min(78vh, 560px); max-height: min(78dvh, 560px); overflow-y: auto; overscroll-behavior: contain; padding: 24px 17px max(18px, env(safe-area-inset-bottom)); border-top: 1px solid var(--line); border-radius: 18px 18px 0 0; box-shadow: 0 -10px 30px #24271f26; transform: translateY(0); visibility: visible; transition: transform .25s ease, visibility .25s; }
+  body.is-immersive .audio-panel::before { content: ""; position: absolute; top: 8px; left: 50%; width: 38px; height: 4px; margin-left: -19px; background: var(--line); border-radius: 2px; }
+  body.is-immersive .app-shell.audio-panel-hidden .audio-panel { display: grid; transform: translateY(105%); visibility: hidden; }
+  body.is-immersive .show-audio-panel[aria-expanded="true"] { color: var(--surface); background: var(--green-dark); }
   .sidebar { position: fixed; z-index: 10; inset: 64px auto 0 0; width: min(300px, 84vw); height: auto; min-height: 0; padding: 23px 20px 18px; overflow: auto; box-shadow: 12px 0 30px #24271f12; transform: translateX(-110%); transition: transform .25s ease; }
   .sidebar.is-open { transform: translateX(0); }
   .sidebar-toggle, .show-sidebar { display: inline-grid; }
@@ -355,7 +356,6 @@ body.theme-dark .welcome-card h2 em { color: #aebc9e; }
   .reader-toolbar { min-height: 52px; }
   body.is-immersive .reader-toolbar { position: fixed; z-index: 12; top: 0; right: 0; left: 0; min-height: 52px; padding: 0 17px; background: var(--surface); border-bottom: 1px solid var(--line); box-shadow: 0 5px 16px #24271f12; transform: translateY(-110%); visibility: hidden; transition: transform .2s ease, visibility .2s; }
   body.is-immersive.reader-chrome-visible .reader-toolbar { top: 68px; transform: translateY(0); visibility: visible; }
-  body.is-immersive:not(.reader-chrome-visible) .reader-controls-reveal { display: grid; }
   body.is-immersive .viewer { max-height: none; }
   .reader-stage { min-height: 390px; }
   .viewer { min-height: 390px; max-height: calc(100vh - 330px); }
@@ -364,8 +364,7 @@ body.theme-dark .welcome-card h2 em { color: #aebc9e; }
   .welcome-card h2 { font-size: 29px; }
   .progress-group { gap: 7px; }
   #progress-label { display: none; }
-  .page-controls { gap: 10px; }
-  .reader-column.is-scrolling .page-controls { display: none; }
+  .page-controls { display: none; }
   .audio-panel { grid-template-columns: 1fr 1fr; column-gap: 12px; padding: 15px 17px 18px; }
   .audio-panel-heading { gap: 8px; }
   .audio-panel-heading .icon-button { width: 30px; height: 30px; }
