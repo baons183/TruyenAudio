@@ -348,7 +348,7 @@
         lastTouchLinkAt = Date.now();
       }
       const target = new URL(href, contentDocument.baseURI);
-      const targetHref = `${target.pathname.replace(/^\/+/, "")}${target.search}${target.hash}`;
+      const targetHref = `${book.path.relative(decodeURI(target.pathname))}${target.hash}`;
       stopSpeech();
       showReaderChrome();
       rendition.display(targetHref).catch((error) => {
@@ -826,6 +826,16 @@
       loadingStep = "giải nén nội dung EPUB";
       book = window.ePub(bookData);
       await book.ready;
+      // Chrome chặn listener trong iframe sandbox thiếu allow-scripts, nên phải bật script;
+      // bù lại, loại bỏ mọi script/handler có sẵn trong nội dung EPUB.
+      book.spine.hooks.content.register((doc) => {
+        for (const node of doc.querySelectorAll("script")) node.remove();
+        for (const el of doc.querySelectorAll("*")) {
+          for (const attr of [...el.attributes]) {
+            if (/^on/i.test(attr.name) || /^\s*javascript:/i.test(attr.value)) el.removeAttribute(attr.name);
+          }
+        }
+      });
       loadingStep = "hiển thị nội dung sách";
       const readerSize = viewer.getBoundingClientRect();
       if (!readerSize.width || !readerSize.height) {
@@ -837,6 +847,7 @@
         spread: "none",
         flow: readingMode,
         manager: "default",
+        allowScriptedContent: true,
       });
       applyReaderPreferences();
       rendition.on("rendered", (_section, view) => {
