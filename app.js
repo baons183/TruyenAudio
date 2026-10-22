@@ -318,7 +318,7 @@
   }
 
   function showReaderChrome() {
-    if (window.innerWidth > 650 || !document.body.classList.contains("is-immersive")) return;
+    if (!document.body.classList.contains("is-immersive")) return;
     window.clearTimeout(readerChromeTimer);
     document.body.classList.add("reader-chrome-visible");
     readerChromeTimer = window.setTimeout(hideReaderChrome, 4000);
@@ -355,19 +355,13 @@
       });
       return true;
     };
-    contentDocument.addEventListener("click", (event) => handleReaderLink(event), { capture: true });
-    contentDocument.addEventListener("touchend", (event) => {
-      if (!touchStart) return;
-      const touch = event.changedTouches[0];
-      if (!touch || Math.hypot(touch.clientX - touchStart.x, touch.clientY - touchStart.y) > 12) return;
-      if (handleReaderLink(event, true)) return;
-      showReaderChrome();
-    }, { capture: true, passive: false });
-    contentDocument.addEventListener("click", showReaderChrome, { passive: true });
+    contentDocument.addEventListener("click", (event) => {
+      if (!handleReaderLink(event)) showReaderChrome();
+    }, { capture: true });
     contentDocument.addEventListener("touchstart", (event) => {
       const touch = event.changedTouches[0];
       if (touch) touchStart = { x: touch.clientX, y: touch.clientY };
-    }, { passive: true });
+    }, { capture: true, passive: true });
     contentDocument.addEventListener("touchmove", (event) => {
       const touch = event.changedTouches[0];
       if (!touch || !touchStart) return;
@@ -375,21 +369,24 @@
         touchStart = null;
         hideReaderChrome();
       }
-    }, { passive: true });
+    }, { capture: true, passive: true });
     contentDocument.addEventListener("touchend", (event) => {
+      if (!touchStart) return;
       const touch = event.changedTouches[0];
-      if (!touch || !touchStart) return;
+      if (!touch) return;
       const distance = Math.hypot(touch.clientX - touchStart.x, touch.clientY - touchStart.y);
       touchStart = null;
-      if (distance <= 12) showReaderChrome();
-    }, { passive: true });
+      if (distance > 12) return;
+      if (handleReaderLink(event, true)) return;
+      showReaderChrome();
+    }, { capture: true, passive: false });
     contentDocument.addEventListener("touchcancel", () => {
       touchStart = null;
       hideReaderChrome();
-    }, { passive: true });
+    }, { capture: true, passive: true });
     contentDocument.addEventListener("pointerdown", (event) => {
       pointerStart = { x: event.clientX, y: event.clientY, time: Date.now() };
-    }, { passive: true });
+    }, { capture: true, passive: true });
     contentDocument.addEventListener("pointermove", (event) => {
       if (!pointerStart) return;
       const distance = Math.hypot(event.clientX - pointerStart.x, event.clientY - pointerStart.y);
@@ -397,18 +394,18 @@
         pointerStart = null;
         hideReaderChrome();
       }
-    }, { passive: true });
+    }, { capture: true, passive: true });
     contentDocument.addEventListener("pointerup", (event) => {
       if (!pointerStart) return;
       const distance = Math.hypot(event.clientX - pointerStart.x, event.clientY - pointerStart.y);
       const duration = Date.now() - pointerStart.time;
       pointerStart = null;
       if (distance <= 12 && duration < 500) showReaderChrome();
-    }, { passive: true });
+    }, { capture: true, passive: true });
     contentDocument.addEventListener("pointercancel", () => {
       pointerStart = null;
       hideReaderChrome();
-    }, { passive: true });
+    }, { capture: true, passive: true });
     contentDocument.addEventListener("scroll", hideReaderChrome, { capture: true, passive: true });
   }
 
