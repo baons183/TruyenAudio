@@ -324,6 +324,8 @@
     readerChromeTimer = window.setTimeout(hideReaderChrome, 4000);
   }
 
+  $("#reader-controls-reveal").addEventListener("click", showReaderChrome);
+
   function bindReaderGestures(contentDocument) {
     if (!contentDocument || readerGestureDocuments.has(contentDocument)) return;
     readerGestureDocuments.add(contentDocument);
