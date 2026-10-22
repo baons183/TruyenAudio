@@ -62,8 +62,30 @@
     try {
       return new TextDecoder("utf-8", { fatal: true }).decode(bytes);
     } catch {
+      // Không phải UTF-8: thử bảng mã tiếng Trung (GBK/GB18030, Big5) nếu kết quả toàn chữ Hán,
+      // còn lại coi là tiếng Việt cũ (Windows-1258).
+      let best = null;
+      for (const encoding of ["gb18030", "big5"]) {
+        let text;
+        try {
+          text = new TextDecoder(encoding, { fatal: true }).decode(bytes);
+        } catch {
+          continue;
+        }
+        const ratio = cjkRatio(text);
+        if (ratio >= 0.3 && (!best || ratio > best.ratio)) best = { text, ratio };
+      }
+      if (best) return best.text;
       return decodeWith(bytes, "windows-1258") ?? new TextDecoder("utf-8").decode(bytes);
     }
+  }
+
+  /** Tỉ lệ chữ Hán trong các ký tự không phải khoảng trắng (lấy mẫu đầu văn bản). */
+  function cjkRatio(text) {
+    const sample = text.slice(0, 6000).replace(/\s+/g, "");
+    if (!sample.length) return 0;
+    const cjk = sample.match(/[㐀-䶿一-鿿豈-﫿]/g)?.length || 0;
+    return cjk / sample.length;
   }
 
   // ---------- Dựng EPUB ----------
@@ -201,11 +223,23 @@ ${author ? `<dc:creator>${escapeXml(author)}</dc:creator>` : ""}
 
   const TXT_HEADING = /^(?:(?:chương|chuong|hồi|quyển|quyen|phần|tập|tiết|chapter|chap|part|book|volume|vol\.?)\s*[0-9IVXLCDMivxlcdm]+(?=$|[\s:.\-–—)])|(?:đệ|de)\s+\S+\s+(?:chương|hồi)|第\s*[0-9零〇一二三四五六七八九十百千两]+\s*[章回节卷]|(?:mở đầu|lời mở đầu|lời tựa|lời nói đầu|phần kết|ngoại truyện|phiên ngoại|vĩ thanh|prologue|epilogue)(?=$|[\s:.\-–—]))/iu;
 
+  // Tiêu đề chương truyện Trung: 第…章/回/节/卷/集/话/部/篇/幕 (số Ả Rập, toàn khổ, chữ Hán, chữ số viết hoa),
+  // có thể kèm tiền tố 正文/VIP/tên quyển hoặc nằm trong ngoặc 【】; cùng các chương đặc biệt (楔子, 番外...).
+  const CN_NUMBER = "0-9０-９零〇一二三四五六七八九十百千万两壹贰貳叁參肆伍陆陸柒捌玖拾佰仟";
+  const CN_HEADING = new RegExp(
+    String.raw`^[【\[（(〔「《]?\s*`
+      + String.raw`(?:(?:正文|VIP章节|VIP|vip)\s*[:：]?\s*|第\s*[${CN_NUMBER}]+\s*[卷部]\s*[^第\s]{0,20}\s+)?`
+      + String.raw`(?:第\s*[${CN_NUMBER}]+\s*[章回节節卷集话話部篇幕]`
+      + String.raw`|(?:楔子|引子|序章|序言|序幕|前言|尾声|尾聲|番外篇?|后记|後記|终章|終章|大结局|大結局|完本感言|上架感言)`
+      + String.raw`(?=$|[\s:：.、·\-—【\[（(${CN_NUMBER}]))`,
+    "u",
+  );
+
   function txtToChapters(text, fallbackTitle) {
     const lines = text.replace(/\r\n?/g, "\n").split("\n").map((line) => line.replace(/\s+$/, ""));
     const isHeading = (line) => {
       const trimmed = line.trim();
-      return trimmed.length > 0 && trimmed.length <= 100 && TXT_HEADING.test(trimmed);
+      return trimmed.length > 0 && trimmed.length <= 100 && (TXT_HEADING.test(trimmed) || CN_HEADING.test(trimmed));
     };
     const headingCount = lines.filter(isHeading).length;
     const paragraph = (line) => `<p>${escapeXml(line.trim())}</p>`;
