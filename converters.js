@@ -3,7 +3,7 @@
 (() => {
   "use strict";
 
-  const SUPPORTED_EXTENSIONS = /\.(epub|txt|text|mobi|prc|azw3?|fb2|fbz|fb2\.zip|docx|html?|xhtml)$/i;
+  const SUPPORTED_EXTENSIONS = /\.(epub|txt|text|mobi|prc|azw3?|fb2|fbz|zip|docx|html?|xhtml)$/i;
   const ZIP_SIGNATURE = [0x50, 0x4b];
   const HTML_NS = "http://www.w3.org/1999/xhtml";
   const W_NS = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
@@ -616,7 +616,7 @@ ${author ? `<dc:creator>${escapeXml(author)}</dc:creator>` : ""}
       const fb2Entry = Object.values(zip.files).find((entry) => /\.fb2$/i.test(entry.name));
       if (fb2Entry) return convertFb2(new Uint8Array(await fb2Entry.async("uint8array")), fb2Entry.name);
       if (zip.file("META-INF/container.xml") || zip.file("mimetype")) return buffer;
-      throw new Error("Không nhận ra định dạng của tệp nén này.");
+      throw new Error("Tệp nén này không chứa sách EPUB, FB2 hoặc Word.");
     }
     const head = latin1Head(bytes, 1024);
     if (/\.fb2$/i.test(name) || /<FictionBook/i.test(head)) return convertFb2(bytes, name);
