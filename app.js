@@ -13,7 +13,15 @@
   const voiceSelect = $("#voice-select");
   const speechStatus = $("#speech-status");
   const audioIllustration = $("#audio-illustration");
-  const synth = window.speechSynthesis;
+  // Trong app iOS/Android (Capacitor), giọng trên máy đi qua plugin native ReaderSpeech
+  // để nghe được khi gạt im lặng, tắt màn hình và tự chuyển chương khi chạy nền.
+  const nativeSpeech = window.capacitorExports?.Capacitor?.isNativePlatform?.()
+    ? window.capacitorExports.registerPlugin("ReaderSpeech")
+    : null;
+  let nativeVoices = [];
+  let nativeState = "stopped";
+  let nativeLoadToken = 0;
+  const synth = nativeSpeech ? null : window.speechSynthesis;
   const audioPlayer = new Audio();
   const defaultReaderPreferences = {
     fontFamily: "georgia",
@@ -537,6 +545,12 @@
 
   async function goToAdjacentChapter(offset, keepListening = isSpeechActive()) {
     if (!rendition) return;
+    if (isNativeSpeaking()) {
+      (offset > 0 ? nativeSpeech.next() : nativeSpeech.previous()).catch((error) => {
+        console.error("Không thể chuyển chương:", error);
+      });
+      return;
+    }
     const section = adjacentChapterSection(offset);
     if (!section) {
       if (!keepListening) stopSpeech();
@@ -613,7 +627,7 @@
 
   function updateSpeechButtons(isPlaying = false) {
     updateMediaSession(isPlaying);
-    setKeepScreenOn(isPlaying && !isPaused && !usingOnlineVoice);
+    setKeepScreenOn(isPlaying && !isPaused && !usingOnlineVoice && !nativeSpeech);
     playButton.classList.toggle("is-playing", isPlaying);
     $("#play-label").textContent = isPlaying ? (isPaused ? "Tiếp tục nghe" : "Đang đọc") : "Nghe chương này";
   }
@@ -748,7 +762,112 @@
   let lastSynthCancelAt = 0;
   let synthUnlocked = false;
 
+  function isNativeSpeaking() {
+    return Boolean(nativeSpeech) && (nativeState === "playing" || nativeState === "paused");
+  }
+
+  async function nativeChapterPayload(section) {
+    const text = await loadSectionText(section);
+    // Giải phóng bộ nhớ của các chương không đang hiển thị.
+    if (section.index !== rendition?.currentLocation()?.start?.index) section.unload();
+    return {
+      index: section.index,
+      title: tocLabelsBySpineIndex.get(section.index) || `Chương ${section.index + 1}`,
+      text,
+    };
+  }
+
+  async function startNativeSpeech() {
+    if (nativeState === "playing") {
+      nativeSpeech.pause();
+      return;
+    }
+    if (nativeState === "paused") {
+      nativeSpeech.resume();
+      return;
+    }
+    stopSpeech();
+    const token = ++nativeLoadToken;
+    const startIndex = rendition?.currentLocation()?.start?.index ?? currentSpineIndex ?? 0;
+    const startSection = book.spine.get(startIndex);
+    if (!startSection) {
+      setSpeechStatus("Không xác định được chương hiện tại");
+      return;
+    }
+    setSpeechStatus("Đang chuẩn bị giọng đọc...", true);
+    try {
+      const first = await nativeChapterPayload(startSection);
+      if (token !== nativeLoadToken) return;
+      await nativeSpeech.start({
+        chapters: [first],
+        startChapter: 0,
+        voiceId: voiceSelect.value,
+        rate: Number($("#rate-range").value),
+        volume: Number($("#volume-range").value),
+        bookTitle: $("#book-title").textContent,
+      });
+      nativeState = "playing";
+      // Gửi trước các chương còn lại để native tự đọc tiếp khi app chạy nền.
+      let batch = [];
+      for (let section = startSection.next(); section; section = section.next()) {
+        batch.push(await nativeChapterPayload(section));
+        if (token !== nativeLoadToken) return;
+        if (batch.length >= 5) {
+          await nativeSpeech.appendChapters({ chapters: batch });
+          batch = [];
+        }
+      }
+      if (batch.length) await nativeSpeech.appendChapters({ chapters: batch });
+      const before = [];
+      for (let section = startSection.prev(); section; section = section.prev()) {
+        before.unshift(await nativeChapterPayload(section));
+        if (token !== nativeLoadToken) return;
+      }
+      if (before.length) await nativeSpeech.prependChapters({ chapters: before });
+    } catch (error) {
+      console.error("Không thể phát giọng đọc native:", error);
+      if (token === nativeLoadToken && nativeState !== "playing") setSpeechStatus("Không thể phát giọng đọc này");
+    }
+  }
+
+  function handleNativeState(state) {
+    if ((state === "stopped" || state === "finished") && nativeState === "stopped") return;
+    nativeState = state;
+    if (state === "playing") {
+      isPaused = false;
+      updateSpeechButtons(true);
+      setSpeechStatus("Đang đọc chương này", true);
+    } else if (state === "paused") {
+      isPaused = true;
+      updateSpeechButtons(true);
+      setSpeechStatus("Đang tạm dừng");
+      audioIllustration.classList.remove("is-speaking");
+    } else {
+      nativeState = "stopped";
+      nativeLoadToken += 1;
+      isPaused = false;
+      updateSpeechButtons(false);
+      setSpeechStatus(state === "finished" ? "Đã đọc xong cuốn sách" : "Sẵn sàng khi bạn cần");
+    }
+  }
+
+  function handleNativeChapter(index, title) {
+    speechSpineIndex = index;
+    setChapterLabel(title || `Chương ${index + 1}`);
+    const section = book?.spine.get(index);
+    if (rendition && section && rendition.currentLocation()?.start?.index !== index) {
+      rendition.display(section.href).catch((error) => {
+        console.error("Không thể hiển thị chương đang đọc:", error);
+      });
+    }
+  }
+
   function stopSpeech() {
+    if (isNativeSpeaking()) {
+      nativeState = "stopped";
+      nativeLoadToken += 1;
+      nativeSpeech.stop().catch(() => {});
+    }
     if (synth && (synth.speaking || synth.pending)) {
       synth.cancel();
       lastSynthCancelAt = Date.now();
@@ -879,6 +998,10 @@
   function startSpeech() {
     if (!book) {
       setSpeechStatus("Hãy mở sách để bắt đầu nghe");
+      return;
+    }
+    if (nativeSpeech && voiceSelect.value !== "online-vi") {
+      startNativeSpeech();
       return;
     }
     if (isPaused && usingOnlineVoice) {
@@ -1203,7 +1326,7 @@
   }
 
   function loadVoices() {
-    voices = synth ? synth.getVoices() : [];
+    voices = nativeSpeech ? nativeVoices : (synth ? synth.getVoices() : []);
     const previous = voiceSelect.value;
     voiceSelect.replaceChildren();
     const onlineGroup = document.createElement("optgroup");
@@ -1272,7 +1395,7 @@
   document.addEventListener("visibilitychange", syncWakeLock);
   stopButton.addEventListener("click", stopSpeech);
   voiceSelect.addEventListener("change", () => {
-    if ((synth && synth.speaking) || !audioPlayer.paused || isPaused) {
+    if ((synth && synth.speaking) || !audioPlayer.paused || isPaused || isNativeSpeaking()) {
       stopSpeech();
       setSpeechStatus("Giọng đọc đã thay đổi");
     }
@@ -1281,12 +1404,14 @@
     $("#rate-value").value = `${Number(event.target.value).toFixed(1)}×`;
     if (usingOnlineVoice && audioPlayer.src) audioPlayer.playbackRate = Number(event.target.value);
     if (currentUtterance && synth?.speaking) currentUtterance.rate = Number(event.target.value);
+    if (isNativeSpeaking()) nativeSpeech.setOptions({ rate: Number(event.target.value) }).catch(() => {});
   });
   $("#volume-range").addEventListener("input", (event) => {
     const volume = Number(event.target.value);
     $("#volume-value").value = `${Math.round(volume * 100)}%`;
     audioPlayer.volume = volume;
     if (currentUtterance && synth?.speaking) currentUtterance.volume = volume;
+    if (isNativeSpeaking()) nativeSpeech.setOptions({ volume }).catch(() => {});
   });
   $("#font-smaller").addEventListener("click", () => {
     updateReaderPreference("fontSize", Math.max(80, fontSize - 10));
@@ -1401,6 +1526,16 @@
   registerMediaSessionHandlers();
 
   loadVoices();
+  if (nativeSpeech) {
+    nativeSpeech.addListener("state", ({ state }) => handleNativeState(state));
+    nativeSpeech.addListener("chapterChange", ({ index, title }) => handleNativeChapter(index, title));
+    nativeSpeech.getVoices().then(({ voices: list }) => {
+      nativeVoices = (list || []).map((voice) => ({ voiceURI: voice.id, name: voice.name, lang: voice.lang }));
+      loadVoices();
+    }).catch((error) => {
+      console.error("Không thể đọc danh sách giọng của máy:", error);
+    });
+  }
   getSetting("extraVoiceLanguages").then((saved) => {
     if (!Array.isArray(saved) || !saved.length) return;
     extraVoiceLanguages = saved.filter((code) => typeof code === "string");

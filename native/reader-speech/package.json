@@ -1,0 +1,29 @@
+{
+  "name": "reader-speech",
+  "version": "1.0.0",
+  "description": "Native text-to-speech with background playback and chapter queue for Sách của bạn",
+  "private": true,
+  "license": "MIT",
+  "files": [
+    "android/src/main/",
+    "android/build.gradle",
+    "ios/Sources",
+    "Package.swift"
+  ],
+  "keywords": [
+    "capacitor",
+    "plugin",
+    "native"
+  ],
+  "peerDependencies": {
+    "@capacitor/core": ">=8.0.0"
+  },
+  "capacitor": {
+    "ios": {
+      "src": "ios"
+    },
+    "android": {
+      "src": "android"
+    }
+  }
+}

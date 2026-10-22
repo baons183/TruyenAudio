@@ -1,0 +1,20 @@
+{
+  "name": "truyen-audio",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Sách của bạn – đọc và nghe sách EPUB (web + app iOS/Android qua Capacitor)",
+  "scripts": {
+    "build": "node scripts/build-www.mjs"
+  },
+  "dependencies": {
+    "@capacitor/android": "^8.5.3",
+    "@capacitor/core": "^8.5.3",
+    "@capacitor/ios": "^8.5.3",
+    "epubjs": "0.3.93",
+    "jszip": "3.10.1",
+    "reader-speech": "file:./native/reader-speech"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^8.5.3"
+  }
+}

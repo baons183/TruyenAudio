@@ -1,0 +1,9 @@
+{
+  "appId": "io.github.baons183.truyenaudio",
+  "appName": "Sách của bạn",
+  "webDir": "www",
+  "backgroundColor": "#f6f4ee",
+  "ios": {
+    "contentInset": "never"
+  }
+}
