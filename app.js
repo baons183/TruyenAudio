@@ -117,6 +117,21 @@
     return setting?.value || null;
   }
 
+  async function getSetting(key) {
+    const database = await openStorage();
+    const transaction = database.transaction("settings", "readonly");
+    const setting = await requestResult(transaction.objectStore("settings").get(key));
+    return setting?.value;
+  }
+
+  async function saveSetting(key, value) {
+    const database = await openStorage();
+    const transaction = database.transaction("settings", "readwrite");
+    const complete = transactionComplete(transaction);
+    transaction.objectStore("settings").put({ key, value });
+    await complete;
+  }
+
   async function saveReaderPreferences() {
     const database = await openStorage();
     const transaction = database.transaction("settings", "readwrite");
@@ -474,7 +489,23 @@
     audioIllustration.classList.toggle("is-speaking", active);
   }
 
+  function updateMediaSession(isPlaying) {
+    if (!("mediaSession" in navigator)) return;
+    navigator.mediaSession.playbackState = isPlaying ? (isPaused ? "paused" : "playing") : "none";
+    if (!isPlaying) return;
+    try {
+      navigator.mediaSession.metadata = new MediaMetadata({
+        title: currentChapter,
+        artist: $("#book-title").textContent,
+        album: "Sách của bạn",
+      });
+    } catch (error) {
+      console.warn("Không thể cập nhật thông tin phát trên màn hình khóa:", error);
+    }
+  }
+
   function updateSpeechButtons(isPlaying = false) {
+    updateMediaSession(isPlaying);
     playButton.classList.toggle("is-playing", isPlaying);
     $("#play-label").textContent = isPlaying ? (isPaused ? "Tiếp tục nghe" : "Đang đọc") : "Nghe chương này";
   }
@@ -594,8 +625,15 @@
     return chunks;
   }
 
+  // Safari/iOS nuốt mất lượt đọc nếu speak() được gọi ngay sau cancel().
+  let lastSynthCancelAt = 0;
+  let synthUnlocked = false;
+
   function stopSpeech() {
-    if (synth) synth.cancel();
+    if (synth && (synth.speaking || synth.pending)) {
+      synth.cancel();
+      lastSynthCancelAt = Date.now();
+    }
     audioPlayer.pause();
     audioPlayer.removeAttribute("src");
     audioPlayer.load();
@@ -657,9 +695,18 @@
       setSpeechStatus("Trình duyệt không hỗ trợ giọng đọc trên máy");
       return;
     }
+    const sinceCancel = Date.now() - lastSynthCancelAt;
+    if (sinceCancel < 250) {
+      const queue = speechQueue;
+      window.setTimeout(() => {
+        if (speechQueue === queue) speakNextChunk();
+      }, 250 - sinceCancel);
+      return;
+    }
     const utterance = new SpeechSynthesisUtterance(speechQueue[speechIndex]);
     const selectedVoice = voiceSelect.value;
     utterance.voice = voices.find((voice) => voice.voiceURI === selectedVoice) || null;
+    utterance.lang = utterance.voice?.lang || "vi-VN";
     utterance.rate = Number($("#rate-range").value);
     utterance.volume = Number($("#volume-range").value);
     utterance.onend = () => {
@@ -672,8 +719,17 @@
       stopSpeech();
       setSpeechStatus("Không thể phát giọng đọc này");
     };
+    let started = false;
+    utterance.onstart = () => {
+      started = true;
+    };
     currentUtterance = utterance;
     synth.speak(utterance);
+    window.setTimeout(() => {
+      if (!started && currentUtterance === utterance && !isPaused) {
+        setSpeechStatus("Chưa nghe thấy tiếng? Hãy tắt chế độ im lặng của máy hoặc chọn giọng Google.", true);
+      }
+    }, 4000);
   }
 
   function prepareSpeech(text) {
@@ -730,6 +786,20 @@
     }
 
     stopSpeech();
+    // Safari 17+: xin phiên âm thanh "playback" để vẫn phát khi máy gạt im lặng (nếu được hỗ trợ).
+    try {
+      if (navigator.audioSession) navigator.audioSession.type = "playback";
+    } catch (error) {
+      console.warn("Không thể đổi phiên âm thanh:", error);
+    }
+    // iOS chỉ cho phát giọng trên máy nếu lần đọc đầu tiên bắt đầu ngay trong lượt chạm.
+    if (synth && !synthUnlocked && voiceSelect.value !== "online-vi") {
+      const unlock = new SpeechSynthesisUtterance(" ");
+      unlock.volume = 0;
+      unlock.lang = "vi-VN";
+      synth.speak(unlock);
+      synthUnlocked = true;
+    }
     const renderedText = getRenderedChapterText();
     if (renderedText) {
       prepareSpeech(renderedText);
@@ -949,6 +1019,61 @@
     }
   }
 
+  // Chỉ hiện giọng tiếng Việt, giọng theo ngôn ngữ của máy và các ngôn ngữ người dùng tự thêm.
+  const deviceLanguage = voiceLanguage(navigator.languages?.[0] || navigator.language || "vi");
+  let extraVoiceLanguages = [];
+  const languageNames = (() => {
+    try {
+      return new Intl.DisplayNames(["vi"], { type: "language" });
+    } catch {
+      return null;
+    }
+  })();
+
+  function voiceLanguage(lang) {
+    return String(lang || "").toLowerCase().split(/[-_]/)[0];
+  }
+
+  function languageName(code) {
+    let name = code;
+    try {
+      name = languageNames?.of(code) || code;
+    } catch {
+      // Mã ngôn ngữ không hợp lệ: giữ nguyên mã.
+    }
+    return name.charAt(0).toUpperCase() + name.slice(1);
+  }
+
+  function shownVoiceLanguages() {
+    return [...new Set(["vi", deviceLanguage, ...extraVoiceLanguages])];
+  }
+
+  function setVoiceLanguagePickerOpen(open) {
+    $("#voice-language-select").hidden = !open;
+    $("#voice-language-add").setAttribute("aria-expanded", String(open));
+    $("#voice-language-add").textContent = open ? "Đóng" : "+ Thêm ngôn ngữ";
+  }
+
+  function renderVoiceLanguagePicker() {
+    const picker = $("#voice-language-select");
+    const shown = shownVoiceLanguages();
+    const hiddenLanguages = [...new Set(voices.map((voice) => voiceLanguage(voice.lang)))]
+      .filter((code) => code && !shown.includes(code))
+      .sort((a, b) => languageName(a).localeCompare(languageName(b), "vi"));
+    const placeholder = new Option("Chọn ngôn ngữ…", "");
+    placeholder.disabled = true;
+    placeholder.selected = true;
+    picker.replaceChildren(placeholder);
+    for (const code of hiddenLanguages) {
+      const count = voices.filter((voice) => voiceLanguage(voice.lang) === code).length;
+      picker.append(new Option(`${languageName(code)} (${count} giọng)`, code));
+    }
+    if (extraVoiceLanguages.length) picker.append(new Option("Bỏ các ngôn ngữ đã thêm", "reset"));
+    const addButton = $("#voice-language-add");
+    addButton.hidden = picker.options.length <= 1;
+    if (addButton.hidden) setVoiceLanguagePickerOpen(false);
+  }
+
   function loadVoices() {
     voices = synth ? synth.getVoices() : [];
     const previous = voiceSelect.value;
@@ -960,9 +1085,12 @@
     onlineOption.textContent = "Tiếng Việt · Google";
     onlineGroup.append(onlineOption);
     voiceSelect.append(onlineGroup);
-    const viVoices = voices.filter((voice) => voice.lang.toLowerCase().startsWith("vi"));
-    const otherVoices = voices.filter((voice) => !voice.lang.toLowerCase().startsWith("vi"));
-    for (const [label, list] of [["Tiếng Việt", viVoices], ["Ngôn ngữ khác", otherVoices]]) {
+    const viVoices = voices.filter((voice) => voiceLanguage(voice.lang) === "vi");
+    const voiceGroups = shownVoiceLanguages().map((code) => [
+      code === "vi" ? "Tiếng Việt" : languageName(code),
+      voices.filter((voice) => voiceLanguage(voice.lang) === code),
+    ]);
+    for (const [label, list] of voiceGroups) {
       if (!list.length) continue;
       const group = document.createElement("optgroup");
       group.label = label;
@@ -974,13 +1102,32 @@
       }
       voiceSelect.append(group);
     }
-    const preferred = viVoices.find((voice) => /female|linh|an|hoai|vietnam/i.test(voice.name)) || viVoices[0] || voices[0];
-    const available = [...voices.map((voice) => voice.voiceURI), "online-vi"];
+    const preferred = viVoices.find((voice) => /female|linh|an|hoai|vietnam/i.test(voice.name)) || viVoices[0];
+    const available = [...voiceSelect.options].map((option) => option.value);
     voiceSelect.value = available.includes(previous)
       ? previous
-      : (viVoices.length ? preferred.voiceURI : "online-vi");
+      : (preferred ? preferred.voiceURI : "online-vi");
     voiceSelect.disabled = false;
+    renderVoiceLanguagePicker();
   }
+
+  $("#voice-language-add").addEventListener("click", () => {
+    setVoiceLanguagePickerOpen($("#voice-language-select").hidden);
+  });
+  $("#voice-language-select").addEventListener("change", (event) => {
+    const code = event.target.value;
+    extraVoiceLanguages = code === "reset" ? [] : [...extraVoiceLanguages, code];
+    setVoiceLanguagePickerOpen(false);
+    loadVoices();
+    const firstVoice = voices.find((voice) => voiceLanguage(voice.lang) === code);
+    if (firstVoice) {
+      voiceSelect.value = firstVoice.voiceURI;
+      voiceSelect.dispatchEvent(new Event("change"));
+    }
+    saveSetting("extraVoiceLanguages", extraVoiceLanguages).catch((error) => {
+      console.error("Không thể lưu ngôn ngữ giọng đọc:", error);
+    });
+  });
 
   $("#open-book").addEventListener("click", () => fileInput.click());
   $("#home-button").addEventListener("click", showHomeView);
@@ -1095,7 +1242,33 @@
     openBook(event.dataTransfer?.files?.[0]);
   });
 
+  if ("mediaSession" in navigator) {
+    const mediaActions = {
+      play: () => {
+        if (isPaused) startSpeech();
+      },
+      pause: () => {
+        if (!isPaused && (speechQueue.length || !audioPlayer.paused)) startSpeech();
+      },
+      stop: stopSpeech,
+    };
+    for (const [action, handler] of Object.entries(mediaActions)) {
+      try {
+        navigator.mediaSession.setActionHandler(action, handler);
+      } catch {
+        // Trình duyệt không hỗ trợ thao tác này trên màn hình khóa.
+      }
+    }
+  }
+
   loadVoices();
+  getSetting("extraVoiceLanguages").then((saved) => {
+    if (!Array.isArray(saved) || !saved.length) return;
+    extraVoiceLanguages = saved.filter((code) => typeof code === "string");
+    loadVoices();
+  }).catch((error) => {
+    console.error("Không thể đọc ngôn ngữ giọng đọc đã lưu:", error);
+  });
   if (synth) {
     synth.addEventListener("voiceschanged", loadVoices);
   }

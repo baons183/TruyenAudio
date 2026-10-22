@@ -15,7 +15,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:wght@500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=20261022-28">
+    <link rel="stylesheet" href="styles.css?v=20261022-31">
   </head>
   <body>
     <header class="topbar">
@@ -244,6 +244,8 @@
           <select id="voice-select" disabled>
             <option>Đang tải giọng đọc...</option>
           </select>
+          <button class="voice-language-add" id="voice-language-add" type="button" aria-controls="voice-language-select" aria-expanded="false" hidden>+ Thêm ngôn ngữ</button>
+          <select class="voice-language-select" id="voice-language-select" aria-label="Chọn ngôn ngữ để thêm giọng đọc" hidden></select>
         </div>
         <div class="voice-setting rate-setting">
           <div class="rate-label">
@@ -285,6 +287,6 @@
 
     <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/epubjs@0.3.93/dist/epub.min.js"></script>
-    <script src="app.js?v=20261022-28"></script>
+    <script src="app.js?v=20261022-31"></script>
   </body>
 </html>
