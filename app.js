@@ -238,6 +238,9 @@
     document.body.classList.toggle("theme-sepia", theme === "sepia");
     document.body.classList.toggle("theme-dark", theme === "dark");
     const next = readerThemes[readerThemeOrder[(readerThemeOrder.indexOf(theme) + 1) % readerThemeOrder.length]];
+    // Màu thanh trạng thái / thanh địa chỉ theo giao diện.
+    const chromeColors = { light: "#f6f4ee", sepia: "#f1e8d7", dark: "#252922" };
+    document.querySelector('meta[name="theme-color"]')?.setAttribute("content", chromeColors[theme]);
     const button = $("#theme-toggle");
     button.title = `Giao diện: ${readerThemes[theme].label} (bấm để chuyển sang ${next.label})`;
     button.setAttribute("aria-label", button.title);
