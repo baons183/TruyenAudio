@@ -26,8 +26,11 @@
   const defaultReaderPreferences = {
     fontFamily: "georgia",
     fontSize: 100,
+    lineHeight: 1.85,
+    margin: 16,
     textColor: "#35372f",
     backgroundColor: "#fffefa",
+    brightness: null,
   };
   const readerFontFamilies = {
     georgia: "Georgia, 'Times New Roman', serif",
@@ -159,6 +162,15 @@
     $("#reader-font").value = readerPreferences.fontFamily;
     $("#reader-font-size").value = String(readerPreferences.fontSize);
     $("#reader-font-size-value").textContent = `${readerPreferences.fontSize}%`;
+    $("#reader-line-height").value = String(readerPreferences.lineHeight);
+    $("#reader-line-height-value").textContent = readerPreferences.lineHeight.toFixed(2).replace(/0$/, "");
+    $("#reader-margin").value = String(readerPreferences.margin);
+    $("#reader-margin-value").textContent = `${readerPreferences.margin} px`;
+    const brightness = readerPreferences.brightness;
+    $("#reader-brightness-auto").checked = brightness === null;
+    $("#reader-brightness").disabled = brightness === null;
+    if (brightness !== null) $("#reader-brightness").value = String(Math.round(brightness * 100));
+    $("#reader-brightness-value").textContent = brightness === null ? "Theo máy" : `${Math.round(brightness * 100)}%`;
     $("#reader-text-color").value = readerPreferences.textColor;
     $("#reader-background-color").value = readerPreferences.backgroundColor;
   }
@@ -169,6 +181,7 @@
     if (!rendition) return;
 
     const fontFamily = readerFontFamilies[readerPreferences.fontFamily];
+    const { lineHeight, margin } = readerPreferences;
     rendition.themes.default({
       html: { background: `${readerPreferences.backgroundColor} !important` },
       body: {
@@ -176,17 +189,39 @@
         background: `${readerPreferences.backgroundColor} !important`,
         "font-family": `${fontFamily} !important`,
         "font-size": `${fontSize}% !important`,
-        "line-height": "1.85 !important",
-        padding: "12px 24px",
+        "line-height": `${lineHeight} !important`,
+        // epub.js tự chèn lề 1/12 bề rộng ở chế độ cuộn; !important để dùng lề người dùng chọn.
+        padding: `12px ${margin}px !important`,
       },
       "body *": {
         color: `${readerPreferences.textColor} !important`,
         "font-family": `${fontFamily} !important`,
       },
-      "h1, h2, h3": { "line-height": "1.4" },
-      p: { "line-height": "1.85", "text-align": "justify" },
+      "h1, h2, h3": { "line-height": "1.4 !important" },
+      "p, li, div, blockquote": { "line-height": `${lineHeight} !important` },
+      p: { "text-align": "justify" },
     });
     rendition.themes.fontSize(`${fontSize}%`);
+  }
+
+  // Ở chế độ lật trang, lề hai bên là một nửa khoảng cách cột (gap) của epub.js.
+  function applyReaderMargin() {
+    if (!rendition) return;
+    const gap = readerPreferences.margin * 2;
+    rendition.settings.gap = gap;
+    if (rendition.manager) {
+      rendition.manager.settings.gap = gap;
+      rendition.manager.updateLayout?.();
+    }
+    if (rendition.location) rendition.flow(readingMode);
+  }
+
+  function applyBrightness() {
+    if (!nativeSpeech) return;
+    const value = readerPreferences.brightness;
+    nativeSpeech.setBrightness({ value: value === null ? -1 : value }).catch((error) => {
+      console.warn("Không thể chỉnh độ sáng:", error);
+    });
   }
 
   function updateReaderPreference(key, value) {
@@ -1197,6 +1232,7 @@
         spread: "none",
         flow: readingMode,
         manager: "default",
+        gap: readerPreferences.margin * 2,
         allowScriptedContent: true,
       });
       applyReaderPreferences();
@@ -1425,11 +1461,11 @@
     if (isNativeSpeaking()) nativeSpeech.setOptions({ volume }).catch(() => {});
   });
   $("#font-smaller").addEventListener("click", () => {
-    updateReaderPreference("fontSize", Math.max(80, fontSize - 10));
+    updateReaderPreference("fontSize", Math.max(70, fontSize - 10));
     persistReaderPreferences();
   });
   $("#font-larger").addEventListener("click", () => {
-    updateReaderPreference("fontSize", Math.min(180, fontSize + 10));
+    updateReaderPreference("fontSize", Math.min(220, fontSize + 10));
     persistReaderPreferences();
   });
   $("#reader-font").addEventListener("change", (event) => {
@@ -1440,6 +1476,28 @@
     updateReaderPreference("fontSize", Number(event.target.value));
   });
   $("#reader-font-size").addEventListener("change", persistReaderPreferences);
+  $("#reader-line-height").addEventListener("input", (event) => {
+    updateReaderPreference("lineHeight", Number(event.target.value));
+  });
+  $("#reader-line-height").addEventListener("change", persistReaderPreferences);
+  $("#reader-margin").addEventListener("input", (event) => {
+    updateReaderPreference("margin", Number(event.target.value));
+  });
+  $("#reader-margin").addEventListener("change", () => {
+    applyReaderMargin();
+    persistReaderPreferences();
+  });
+  $("#reader-brightness").addEventListener("input", (event) => {
+    updateReaderPreference("brightness", Number(event.target.value) / 100);
+    applyBrightness();
+  });
+  $("#reader-brightness").addEventListener("change", persistReaderPreferences);
+  $("#reader-brightness-auto").addEventListener("change", (event) => {
+    updateReaderPreference("brightness", event.target.checked ? null : Number($("#reader-brightness").value) / 100);
+    applyBrightness();
+    persistReaderPreferences();
+  });
+  if (nativeSpeech) $("#reader-brightness-setting").hidden = false;
   $("#reader-text-color").addEventListener("input", (event) => {
     updateReaderPreference("textColor", event.target.value);
   });
@@ -1452,6 +1510,8 @@
     readerPreferences = { ...defaultReaderPreferences };
     syncReaderSettingsControls();
     applyReaderPreferences();
+    applyReaderMargin();
+    applyBrightness();
     persistReaderPreferences();
   });
   $("#hide-audio-panel").addEventListener("click", () => setAudioPanelOpen(false));
@@ -1563,13 +1623,25 @@
   getReaderPreferences().then((preferences) => {
     if (!preferences) return;
     const fontSizeValue = Number(preferences.fontSize);
+    const lineHeightValue = Number(preferences.lineHeight);
+    const marginValue = Number(preferences.margin);
+    const brightnessValue = preferences.brightness === null || preferences.brightness === undefined ? null : Number(preferences.brightness);
     readerPreferences = {
       fontFamily: Object.hasOwn(readerFontFamilies, preferences.fontFamily)
         ? preferences.fontFamily
         : defaultReaderPreferences.fontFamily,
-      fontSize: Number.isFinite(fontSizeValue) && fontSizeValue >= 80 && fontSizeValue <= 180
+      fontSize: Number.isFinite(fontSizeValue) && fontSizeValue >= 70 && fontSizeValue <= 220
         ? Math.round(fontSizeValue / 10) * 10
         : defaultReaderPreferences.fontSize,
+      lineHeight: Number.isFinite(lineHeightValue) && lineHeightValue >= 1.2 && lineHeightValue <= 2.6
+        ? lineHeightValue
+        : defaultReaderPreferences.lineHeight,
+      margin: Number.isFinite(marginValue) && marginValue >= 0 && marginValue <= 60
+        ? marginValue
+        : defaultReaderPreferences.margin,
+      brightness: brightnessValue !== null && brightnessValue >= 0.05 && brightnessValue <= 1
+        ? brightnessValue
+        : null,
       textColor: /^#[0-9a-f]{6}$/i.test(preferences.textColor)
         ? preferences.textColor
         : defaultReaderPreferences.textColor,
@@ -1579,6 +1651,7 @@
     };
     syncReaderSettingsControls();
     applyReaderPreferences();
+    applyBrightness();
     setReaderSettingsStatus("Đã khôi phục tùy chỉnh");
   }).catch((error) => {
     console.error("Không thể khôi phục tùy chỉnh hiển thị:", error);

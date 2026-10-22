@@ -1,4 +1,5 @@
 import Foundation
+import UIKit
 import Capacitor
 import AVFoundation
 import MediaPlayer
@@ -19,7 +20,8 @@ public class ReaderSpeechPlugin: CAPPlugin, CAPBridgedPlugin, AVSpeechSynthesize
         CAPPluginMethod(name: "stop", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "next", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "previous", returnType: CAPPluginReturnPromise),
-        CAPPluginMethod(name: "setOptions", returnType: CAPPluginReturnPromise)
+        CAPPluginMethod(name: "setOptions", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "setBrightness", returnType: CAPPluginReturnPromise)
     ]
 
     private struct Chapter {
@@ -40,6 +42,9 @@ public class ReaderSpeechPlugin: CAPPlugin, CAPBridgedPlugin, AVSpeechSynthesize
     private var bookTitle = ""
     private var state = "stopped"
     private var remoteConfigured = false
+    // Độ sáng iOS áp dụng cho cả hệ thống, nên trả lại độ sáng gốc khi rời app.
+    private var originalBrightness: CGFloat?
+    private var appBrightness: CGFloat?
 
     override public func load() {
         synthesizer.delegate = self
@@ -50,6 +55,36 @@ public class ReaderSpeechPlugin: CAPPlugin, CAPBridgedPlugin, AVSpeechSynthesize
             name: AVAudioSession.interruptionNotification,
             object: AVAudioSession.sharedInstance()
         )
+        NotificationCenter.default.addObserver(self, selector: #selector(appWillResignActive), name: UIApplication.willResignActiveNotification, object: nil)
+        NotificationCenter.default.addObserver(self, selector: #selector(appDidBecomeActive), name: UIApplication.didBecomeActiveNotification, object: nil)
+    }
+
+    @objc func setBrightness(_ call: CAPPluginCall) {
+        let value = call.getDouble("value") ?? -1
+        DispatchQueue.main.async {
+            if value < 0 {
+                if let original = self.originalBrightness { UIScreen.main.brightness = original }
+                self.originalBrightness = nil
+                self.appBrightness = nil
+            } else {
+                if self.originalBrightness == nil { self.originalBrightness = UIScreen.main.brightness }
+                let brightness = CGFloat(min(max(value, 0.01), 1))
+                self.appBrightness = brightness
+                UIScreen.main.brightness = brightness
+            }
+            call.resolve()
+        }
+    }
+
+    @objc private func appWillResignActive() {
+        guard appBrightness != nil, let original = originalBrightness else { return }
+        UIScreen.main.brightness = original
+    }
+
+    @objc private func appDidBecomeActive() {
+        guard let brightness = appBrightness else { return }
+        originalBrightness = UIScreen.main.brightness
+        UIScreen.main.brightness = brightness
     }
 
     // MARK: - Plugin methods

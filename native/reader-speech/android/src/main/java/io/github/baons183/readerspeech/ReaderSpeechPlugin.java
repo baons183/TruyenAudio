@@ -4,6 +4,7 @@ import android.Manifest;
 import android.content.pm.PackageManager;
 import android.os.Build;
 import android.speech.tts.Voice;
+import android.view.WindowManager;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 import com.getcapacitor.JSArray;
@@ -154,6 +155,24 @@ public class ReaderSpeechPlugin extends Plugin {
         String voiceId = call.getString("voiceId");
         engine.whenReady(() -> {
             engine.setOptions(rate, volume, voiceId);
+            call.resolve();
+        });
+    }
+
+    /** Độ sáng chỉ áp dụng cho cửa sổ app; giá trị âm = theo độ sáng của máy. */
+    @PluginMethod
+    public void setBrightness(PluginCall call) {
+        double value = call.getDouble("value", -1.0);
+        if (getActivity() == null) {
+            call.resolve();
+            return;
+        }
+        getActivity().runOnUiThread(() -> {
+            WindowManager.LayoutParams params = getActivity().getWindow().getAttributes();
+            params.screenBrightness = value < 0
+                ? WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE
+                : (float) Math.max(0.01, Math.min(1.0, value));
+            getActivity().getWindow().setAttributes(params);
             call.resolve();
         });
     }
