@@ -2384,9 +2384,12 @@
       const select = $("#translate-model");
       select.replaceChildren(...models.map((model) => new Option(model.label, model.name)));
       const keep = models.find((model) => model.name === translationSettings.model);
+      // Mặc định: bản Flash Lite mới nhất, không phải bản thử nghiệm (nhiều lượt miễn phí nhất).
+      const version = (model) => Number(model.name.match(/gemini-(\d+(?:\.\d+)?)/i)?.[1] || 0);
+      const newestFirst = [...models].sort((a, b) => version(b) - version(a));
       const preferred = keep
-        || models.find((model) => /flash/i.test(model.name) && !/lite|preview|exp/i.test(model.name))
-        || models.find((model) => /flash/i.test(model.name))
+        || newestFirst.find((model) => /flash[-_ ]?lite/i.test(model.name) && !/preview|exp/i.test(model.name))
+        || newestFirst.find((model) => /flash/i.test(model.name) && !/preview|exp/i.test(model.name))
         || models[0];
       select.value = preferred.name;
       translationSettings = { ...translationSettings, apiKey: key, model: preferred.name, outputTokenLimit: preferred.outputTokenLimit };

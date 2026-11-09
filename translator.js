@@ -398,7 +398,10 @@ XI. ĐỊNH DẠNG KỸ THUẬT (bắt buộc, do ứng dụng đọc sách yêu
     } while (pageToken);
     return models
       .filter((model) => model.supportedGenerationMethods?.includes("generateContent"))
-      .filter((model) => /gemini/i.test(model.name) && !/(tts|image|embedding|aqa|audio|live|vision)/i.test(model.name))
+      // Bỏ các model không dùng để dịch văn bản (giọng nói, ảnh, robot, điều khiển máy tính...).
+      .filter((model) => /gemini/i.test(model.name)
+        && !/(tts|image|embedding|aqa|audio|live|vision|robotics|computer-use|transcribe|customtools|custom-tools)/i.test(model.name)
+        && !/(banana|robotics|computer use|transcribe|custom tools)/i.test(model.displayName || ""))
       .map((model) => ({
         name: model.name,
         label: model.displayName || model.name.replace(/^models\//, ""),
