@@ -128,10 +128,17 @@
     const transaction = database.transaction(["books", "settings"], "readwrite");
     const complete = transactionComplete(transaction);
     transaction.objectStore("books").delete(id);
-    // Bản dịch và bảng tên của sách này.
-    transaction.objectStore("settings").delete(IDBKeyRange.bound(`tr:${id}:`, `tr:${id}:\uffff`));
-    transaction.objectStore("settings").delete(`glossary:${id}`);
-    transaction.objectStore("settings").delete(`trqueue:${id}`);
+    // Bản dịch, bảng tên và hàng đợi dịch của sách này (mọi ngôn ngữ đích).
+    const settingsStore = transaction.objectStore("settings");
+    settingsStore.openKeyCursor().onsuccess = (event) => {
+      const cursor = event.target.result;
+      if (!cursor) return;
+      const key = String(cursor.key);
+      if (/^(tr|glossary|trqueue)(-[\w-]+)?:/.test(key) && (key.slice(key.indexOf(":") + 1) === id || key.slice(key.indexOf(":") + 1).startsWith(`${id}:`))) {
+        settingsStore.delete(cursor.key);
+      }
+      cursor.continue();
+    };
     await complete;
   }
 
@@ -883,7 +890,7 @@
 
   // ---------- Dịch truyện bằng Gemini ----------
   const defaultTranslationSettings = {
-    apiKey: "", model: "", outputTokenLimit: 8192, prompt: "", autoTranslate: true, mode: "original",
+    apiKey: "", model: "", outputTokenLimit: 8192, prompt: "", autoTranslate: true, mode: "original", targetLang: "auto",
   };
   let translationSettings = { ...defaultTranslationSettings };
   let bookGlossary = [];
@@ -910,8 +917,58 @@
     status.classList.toggle("is-error", isError);
   }
 
+  // Ngôn ngữ đích: "auto" = ngôn ngữ của máy. Tiếng Việt giữ khóa lưu cũ để không mất bản dịch đã có.
+  const TRANSLATION_LANGUAGES = ["vi", "en", "zh", "ja", "ko", "fr", "de", "es", "pt", "ru", "th", "id", "ms", "it"];
+
+  function deviceLanguageCode() {
+    return String(navigator.languages?.[0] || navigator.language || "vi").toLowerCase().split(/[-_]/)[0];
+  }
+
+  function targetLanguage() {
+    return translationSettings.targetLang && translationSettings.targetLang !== "auto"
+      ? translationSettings.targetLang
+      : deviceLanguageCode();
+  }
+
+  function langKey(kind) {
+    const lang = targetLanguage();
+    return `${kind}${lang === "vi" ? "" : `-${lang}`}:${currentBookId}`;
+  }
+
   function translationKey(index) {
-    return `tr:${currentBookId}:${index}`;
+    return `${langKey("tr")}:${index}`;
+  }
+
+  function vietnameseLanguageName(code) {
+    try {
+      const name = new Intl.DisplayNames(["vi"], { type: "language" }).of(code) || code;
+      return name.charAt(0).toUpperCase() + name.slice(1);
+    } catch {
+      return code;
+    }
+  }
+
+  function renderTargetLanguageOptions() {
+    const select = $("#translate-target");
+    const device = deviceLanguageCode();
+    const codes = TRANSLATION_LANGUAGES.includes(device) ? TRANSLATION_LANGUAGES : [device, ...TRANSLATION_LANGUAGES];
+    select.replaceChildren(
+      new Option(`Theo ngôn ngữ của máy (${vietnameseLanguageName(device)})`, "auto"),
+      ...codes.map((code) => new Option(vietnameseLanguageName(code), code)),
+    );
+    select.value = translationSettings.targetLang || "auto";
+  }
+
+  /** Đổi ngôn ngữ đích: nạp lại bản dịch, bảng tên và hàng đợi của ngôn ngữ mới. */
+  function reloadForTargetLanguage() {
+    translationCache.clear();
+    translationJobs.clear();
+    syncTranslationControls();
+    if (!book) return;
+    loadBookGlossary();
+    restoreTranslationQueue();
+    updateTranslateStatus();
+    rerenderReader();
   }
 
   async function getTranslation(index) {
@@ -951,7 +1008,7 @@
     }
     if (!changed) return;
     renderGlossaryEditor();
-    saveSetting(`glossary:${currentBookId}`, bookGlossary).catch((error) => {
+    saveSetting(langKey("glossary"), bookGlossary).catch((error) => {
       console.error("Không thể lưu bảng tên:", error);
     });
   }
@@ -966,6 +1023,9 @@
     const index = section.index;
     if (!force && translationJobs.has(index)) return translationJobs.get(index);
     const bookId = currentBookId;
+    // Ghi nhớ ngôn ngữ đích lúc bắt đầu: đổi ngôn ngữ giữa chừng thì bản dịch vẫn lưu đúng chỗ.
+    const lang = targetLanguage();
+    const storageKey = translationKey(index);
     const job = (async () => {
       if (!window.BookTranslator) throw new Error("Không tải được bộ dịch.");
       if (!hasGeminiSetup()) throw new window.BookTranslator.TranslatorError("Chưa có khóa API Gemini hoặc chưa chọn model.");
@@ -982,6 +1042,7 @@
         model: translationSettings.model,
         outputTokenLimit: translationSettings.outputTokenLimit,
         prompt: translationSettings.prompt,
+        lang,
         paragraphs,
         glossary: bookGlossary,
         onProgress: (done, total) => {
@@ -990,9 +1051,10 @@
         },
       });
       if (bookId !== currentBookId) return null;
-      const record = { aligned: result.aligned, paragraphs: result.paragraphs, model: translationSettings.model, at: Date.now() };
+      const record = { aligned: result.aligned, paragraphs: result.paragraphs, model: translationSettings.model, lang, at: Date.now() };
+      await saveSetting(storageKey, record);
+      if (lang !== targetLanguage()) return null;
       translationCache.set(index, record);
-      await saveSetting(translationKey(index), record);
       translatedIndexes.add(index);
       markTranslatedChapters();
       mergeGlossary(result.glossary);
@@ -1038,7 +1100,7 @@
       const database = await openStorage();
       const transaction = database.transaction("settings", "readonly");
       const keys = await requestResult(transaction.objectStore("settings")
-        .getAllKeys(IDBKeyRange.bound(`tr:${currentBookId}:`, `tr:${currentBookId}:\uffff`)));
+        .getAllKeys(IDBKeyRange.bound(`${langKey("tr")}:`, `${langKey("tr")}:\uffff`)));
       for (const key of keys) translatedIndexes.add(Number(String(key).split(":").pop()));
     } catch (error) {
       console.error("Không thể đọc danh sách chương đã dịch:", error);
@@ -1049,7 +1111,7 @@
   function persistTranslationQueue() {
     if (!currentBookId) return;
     const { items, mode } = translationQueue;
-    saveSetting(`trqueue:${currentBookId}`, { items, mode }).catch(() => {});
+    saveSetting(langKey("trqueue"), { items, mode }).catch(() => {});
   }
 
   function renderTranslationQueueStatus() {
@@ -1172,7 +1234,7 @@
     renderTranslationQueueStatus();
     await loadTranslatedIndexes();
     try {
-      const saved = currentBookId ? await getSetting(`trqueue:${currentBookId}`) : null;
+      const saved = currentBookId ? await getSetting(langKey("trqueue")) : null;
       const items = (saved?.items || []).filter((index) => !translatedIndexes.has(index));
       if (!items.length) return;
       translationQueue.items = items;
@@ -1320,7 +1382,8 @@
     }
     $("#translate-auto").checked = translationSettings.autoTranslate;
     $("#translate-key").value = translationSettings.apiKey;
-    $("#translate-prompt").value = translationSettings.prompt || window.BookTranslator?.DEFAULT_PROMPT || "";
+    $("#translate-prompt").value = translationSettings.prompt || window.BookTranslator?.defaultPrompt(targetLanguage()) || "";
+    renderTargetLanguageOptions();
     const select = $("#translate-model");
     if (translationSettings.model && ![...select.options].some((option) => option.value === translationSettings.model)) {
       select.replaceChildren(new Option(translationSettings.model.replace(/^models\//, ""), translationSettings.model));
@@ -1331,7 +1394,7 @@
   async function loadBookGlossary() {
     bookGlossary = [];
     try {
-      const saved = currentBookId ? await getSetting(`glossary:${currentBookId}`) : null;
+      const saved = currentBookId ? await getSetting(langKey("glossary")) : null;
       if (Array.isArray(saved)) bookGlossary = saved;
     } catch (error) {
       console.error("Không thể đọc bảng tên:", error);
@@ -1566,7 +1629,7 @@
       const audioUrl = new URL("https://translate.google.com/translate_tts");
       audioUrl.searchParams.set("ie", "UTF-8");
       audioUrl.searchParams.set("client", "tw-ob");
-      audioUrl.searchParams.set("tl", "vi");
+      audioUrl.searchParams.set("tl", isTranslationOn() ? targetLanguage() : "vi");
       audioUrl.searchParams.set("q", text);
       audioPlayer.src = audioUrl.toString();
       audioPlayer.playbackRate = Number($("#rate-range").value);
@@ -2406,10 +2469,17 @@
   });
   $("#translate-prompt").addEventListener("change", (event) => {
     const value = event.target.value.trim();
-    const isDefault = value === window.BookTranslator?.DEFAULT_PROMPT.trim();
+    const isDefault = value === window.BookTranslator?.defaultPrompt(targetLanguage()).trim();
     translationSettings = { ...translationSettings, prompt: isDefault || !value ? "" : value };
     saveTranslationSettings();
     setTranslateStatus("Đã lưu prompt. Chương dịch sau sẽ dùng prompt mới.");
+  });
+  $("#translate-target").addEventListener("change", (event) => {
+    translationSettings = { ...translationSettings, targetLang: event.target.value };
+    saveTranslationSettings();
+    stopSpeech();
+    reloadForTargetLanguage();
+    setTranslateStatus(`Sẽ dịch sang ${vietnameseLanguageName(targetLanguage())}.`);
   });
   $("#translate-prompt-reset").addEventListener("click", () => {
     translationSettings = { ...translationSettings, prompt: "" };
@@ -2421,7 +2491,7 @@
     if (!currentBookId) return;
     bookGlossary = window.BookTranslator.textToGlossary($("#translate-glossary").value);
     renderGlossaryEditor();
-    saveSetting(`glossary:${currentBookId}`, bookGlossary)
+    saveSetting(langKey("glossary"), bookGlossary)
       .then(() => setTranslateStatus(`Đã lưu bảng tên (${bookGlossary.length} mục).`))
       .catch(() => setTranslateStatus("Không thể lưu bảng tên.", true));
   });

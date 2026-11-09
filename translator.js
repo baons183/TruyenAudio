@@ -275,12 +275,42 @@ Chỉ trả về bản truyện đã được biên tập hoàn chỉnh.
 - Không liệt kê những gì đã sửa.
 - Không thêm bất kỳ nội dung nào ngoài bản truyện.`;
 
+  // Prompt chung khi dịch sang ngôn ngữ khác tiếng Việt (các quy tắc Hán Việt ở trên không áp dụng).
+  const GENERIC_PROMPT = `You are a professional literary translator and editor specialising in Chinese web novels (xianxia, xuanhuan, wuxia, historical and modern).
+Translate the input into natural, fluent {LANG} that reads like a professionally edited, published novel and sounds good when read aloud by text-to-speech.
+
+Rules:
+- Keep the plot, meaning, facts and logic exactly. Do not add, remove, summarise or explain anything.
+- Do not translate word by word; restructure sentences so they read naturally in {LANG}.
+- Keep character names, titles, cultivation ranks, techniques, artifacts, places and sects consistent. Always follow the provided glossary exactly.
+- Respect each character's gender, age, status and relationships. Use forms of address and honorifics that fit the relationship and the setting. Never guess a gender the source does not confirm; use the name or title instead.
+- Render idioms, set phrases and classical allusions with natural equivalents in {LANG}; keep their imagery when a literal rendering would be unclear.
+- Keep the tone of the genre (solemn, poetic, humorous...) without making the prose flowery.
+- Fix obvious machine-translation errors, typos, repeated words and junk text (ads, translator notes, credits).
+- Output only the story text: no notes, no explanations, no headings you invented.`;
+
+  function languageName(code) {
+    try {
+      return new Intl.DisplayNames(["en"], { type: "language" }).of(code) || code;
+    } catch {
+      return code;
+    }
+  }
+
+  /** Prompt mặc định theo ngôn ngữ đích: tiếng Việt dùng prompt biên tập Hán Việt, ngôn ngữ khác dùng prompt chung. */
+  function defaultPrompt(lang = "vi") {
+    return lang === "vi" ? DEFAULT_PROMPT : GENERIC_PROMPT.replaceAll("{LANG}", languageName(lang));
+  }
+
   // Phần kỹ thuật ghép sau prompt của người dùng: định dạng vào/ra để app ghép đúng từng đoạn.
-  const TECHNICAL_INSTRUCTIONS = `
+  function technicalInstructions(lang = "vi") {
+    const target = lang === "vi" ? "tiếng Việt" : `${languageName(lang)} (mã ngôn ngữ "${lang}")`;
+    return `
 
 XI. ĐỊNH DẠNG KỸ THUẬT (bắt buộc, do ứng dụng đọc sách yêu cầu)
 
-- Văn bản đầu vào có thể là nguyên tác tiếng Trung hoặc bản dịch máy/convert tiếng Việt. Trong cả hai trường hợp, kết quả là bản tiếng Việt đã biên tập theo các quy tắc trên.
+- NGÔN NGỮ ĐÍCH: ${target}. Toàn bộ "paragraphs" và trường "translation" trong "glossary" của đầu ra phải viết bằng ngôn ngữ đích này.
+- Văn bản đầu vào có thể là nguyên tác tiếng Trung hoặc một bản dịch máy/convert. Trong mọi trường hợp, kết quả là bản ${target} đã biên tập theo các quy tắc trên.
 - Đầu vào là JSON gồm:
   + "glossary": bộ nhớ nhân vật/tên riêng/thuật ngữ đã chốt cho bộ truyện (có thể rỗng). Mỗi mục: "source" (nguyên văn), "translation" (cách dịch đã chốt), "kind" (loại), "gender" (giới tính, với nhân vật), "note" (quan hệ, xưng hô...). LUÔN dùng đúng "translation" đã chốt cho các mục này.
   + "paragraphs": danh sách các đoạn của chương, theo đúng thứ tự.
@@ -288,6 +318,7 @@ XI. ĐỊNH DẠNG KỸ THUẬT (bắt buộc, do ứng dụng đọc sách yêu
   + "paragraphs": mảng có ĐÚNG CÙNG SỐ PHẦN TỬ với "paragraphs" đầu vào. Phần tử thứ i là bản biên tập của đoạn thứ i. Không gộp hoặc tách đoạn giữa các phần tử (được sửa câu bên trong một đoạn). Đoạn chỉ chứa ký tự rác/quảng cáo thì trả về chuỗi rỗng "".
   + "glossary": CHỈ các tên nhân vật, tên riêng, danh hiệu, công pháp, pháp bảo, địa danh, môn phái, thuật ngữ quan trọng MỚI xuất hiện trong chương này mà chưa có trong "glossary" đầu vào. Mỗi mục: "source" (nguyên văn tiếng Trung nếu có, nếu không thì dạng xuất hiện trong đầu vào), "translation" (cách dịch đã dùng), "kind" (nhân vật / địa danh / môn phái / công pháp / pháp bảo / danh hiệu / thuật ngữ / khác), "gender" (nam / nữ / chưa rõ — chỉ ghi với nhân vật, chỉ khi nguyên tác xác nhận), "note" (quan hệ, thân phận, cách xưng hô nếu nguyên tác xác nhận; để trống nếu chưa rõ). Không thêm mục nếu không chắc chắn.
 - Mục X (ĐẦU RA) áp dụng cho nội dung từng phần tử trong "paragraphs": chỉ có văn bản truyện, không chú thích.`;
+  }
 
   const RESPONSE_SCHEMA = {
     type: "OBJECT",
@@ -431,13 +462,13 @@ XI. ĐỊNH DẠNG KỸ THUẬT (bắt buộc, do ứng dụng đọc sách yêu
     }
   }
 
-  async function translateBatch({ key, model, prompt, paragraphs, glossary, maxOutputTokens }) {
+  async function translateBatch({ key, model, prompt, lang, paragraphs, glossary, maxOutputTokens }) {
     const request = (strict) => callGemini({
       key,
       model,
       path: `${model}:generateContent`,
       body: {
-        systemInstruction: { parts: [{ text: `${prompt || DEFAULT_PROMPT}${TECHNICAL_INSTRUCTIONS}` }] },
+        systemInstruction: { parts: [{ text: `${prompt || defaultPrompt(lang)}${technicalInstructions(lang)}` }] },
         contents: [{
           role: "user",
           parts: [{
@@ -469,7 +500,7 @@ XI. ĐỊNH DẠNG KỸ THUẬT (bắt buộc, do ứng dụng đọc sách yêu
    * Dịch danh sách đoạn của một chương, chia nhỏ theo giới hạn đầu ra của model.
    * onProgress(done, total) báo tiến độ theo phần.
    */
-  async function translateParagraphs({ key, model, outputTokenLimit = 8192, prompt, paragraphs, glossary = [], onProgress }) {
+  async function translateParagraphs({ key, model, outputTokenLimit = 8192, prompt, lang = "vi", paragraphs, glossary = [], onProgress }) {
     // Tiếng Việt sau biên tập dài hơn nguyên tác Trung nhiều lần: giữ mỗi phần vừa phải.
     const maxOutputTokens = Math.min(outputTokenLimit, 32768);
     const maxChars = Math.max(1200, Math.min(6000, Math.floor(maxOutputTokens / 5)));
@@ -495,7 +526,7 @@ XI. ĐỊNH DẠNG KỸ THUẬT (bắt buộc, do ứng dụng đọc sách yêu
       onProgress?.(i, batches.length);
       const batch = batches[i];
       const result = await translateBatch({
-        key, model, prompt, maxOutputTokens,
+        key, model, prompt, lang, maxOutputTokens,
         paragraphs: batch,
         glossary: relevantGlossary(known, batch.join("\n")),
       });
@@ -545,6 +576,8 @@ XI. ĐỊNH DẠNG KỸ THUẬT (bắt buộc, do ứng dụng đọc sách yêu
 
   window.BookTranslator = {
     DEFAULT_PROMPT,
+    defaultPrompt,
+    languageName,
     ADDED_CLASS,
     TranslatorError,
     extractUnits,

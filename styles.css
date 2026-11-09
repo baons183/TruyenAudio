@@ -167,6 +167,7 @@ button { color: inherit; }
 .translate-status { min-height: 14px; margin: 10px 0 0; color: var(--muted); font-size: 10px; line-height: 1.5; }
 .translate-status.is-error { color: #a65349; }
 .translate-auto { margin-top: 10px; }
+.translate-target { margin: 0 0 10px; }
 .translate-queue { display: flex; align-items: center; gap: 8px; }
 .translate-queue .translate-status { flex: 1; }
 .translate-queue-toggle { flex: 0 0 auto; margin-top: 10px; padding: 5px 10px; color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: 6px; cursor: pointer; font-size: 10px; font-weight: 600; }
